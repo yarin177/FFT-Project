@@ -1,44 +1,63 @@
-#include <complex>
+#define _USE_MATH_DEFINES
+
+#include <stdio.h>
 #include <iostream>
-#include <valarray>
-
-const double PI = 3.141592653589793238460;
-
-typedef std::complex<double> Complex;
-typedef std::valarray<Complex> CArray;
+#include <cmath>
+#include "fft.h"
+using namespace std;
 
 
-void fft(CArray& x)
+int main(void)
 {
-    const size_t N = x.size(); // number of elements
-    if (N <= 1) return;
+    int i;
+    double y;
+    const int N = 8;
+    const double Fs = 30000;//sampling frequency
+    const double  T = 1 / Fs;//sample time 
+    const double f = 5000;//frequency
+    Complex in[N];
+    double mag[N];
+    double t[N];//time vector 
 
-    // divide
-    CArray even = x[std::slice(0, N / 2, 2)]; // Split the input in even/odd indices subarrays
-    CArray  odd = x[std::slice(1, N / 2, 2)];
-
-    fft(even);
-    fft(odd);
-
-    // combine
-    for (size_t k = 0; k < N / 2; ++k)
+    for (int i = 0; i < N; i++)
     {
-        Complex t = std::polar(1.0, -2 * PI * k / N) * odd[k];
-        x[k] = even[k] + t;
-        x[k + N / 2] = even[k] - t;
+        t[i] = i * T;
+        in[i] = { (0.7 * cos(2 * PI * f * t[i])), (0.7 * sin(2 * PI * f * t[i])) };// generate (complex) sine waveform
+        double multiplier = 0.5 * (1 - cos(2 * PI * i / (N)));//Hanning Window
+        in[i] = multiplier * in[i];
     }
-}
-int main()
-{
-    const Complex test[] = { 0.0, 1.0, 3.0, 4.0, 4.0, 3.0, 1.0, 0.0 };
-    CArray data(test, 8);
+    CArray data(in, N);
 
-    // forward fft
+
+    printf("\n");
+    printf("  Input Data:\n");
+    printf("\n");
+
+    for (i = 0; i < N; i++)
+    {
+        printf("  %4d  %12f\n", i, in[i].real());
+    }
+
+
     fft(data);
 
-    for (int i = 0; i < 8; ++i)
+    printf("  output Data from FFT implementation:\n");
+
+    for (int i = 0; i < N; ++i)
     {
         std::cout << data[i] << std::endl;
+
     }
+
+    printf("\n");
+    printf("  log magnitude of frequency domain components :\n");
+    printf("\n");
+
+    for (i = 0; i < N; i++)
+    {
+        mag[i] = std::abs(data[i]);
+        std::cout << mag[i] << endl;
+    }
+
     return 0;
 }
