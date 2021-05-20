@@ -7,14 +7,15 @@
 using namespace std;
 
 
+
 int main(void)
 {
     int i;
     double y;
-    const int N = 8;
-    const double Fs = 30000;//sampling frequency
-    const double  T = 1 / Fs;//sample time 
-    const double f = 5000;//frequency
+    const int N = 1000;
+    const double Fs = 100;//How many time points are needed i,e., Sampling Frequency
+    const double  T = 1 / Fs;//# At what intervals time points are sampled
+    const double f = 4;//frequency
     Complex in[N];
     double mag[N];
     double t[N];//time vector 
@@ -51,12 +52,25 @@ int main(void)
 
     printf("\n");
     printf("  log magnitude of frequency domain components :\n");
-    printf("\n");
-
     for (i = 0; i < N; i++)
     {
         mag[i] = std::abs(data[i]);
         std::cout << mag[i] << endl;
+    }
+
+    int tpCount = N;
+    int values[500];
+
+    for (int i = 0; i < 500; i++)
+        values[i] = i;
+    float frequencies[500];
+    float timePeriod = tpCount / Fs;
+
+    printf("\n");
+
+    for (int i = 0; i < 500; i++)
+    {
+        frequencies[i] = values[i] / timePeriod;
     }
 
     return 0;
