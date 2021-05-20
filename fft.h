@@ -1,8 +1,6 @@
-#pragma once
+#define _USE_MATH_DEFINES
 #include <complex>
 #include <valarray>
-
-const double PI = 3.141592653589793238460;
 
 typedef std::complex<double> Complex;
 typedef std::valarray<Complex> CArray;
@@ -23,7 +21,7 @@ void fft(CArray& x)
     // combine
     for (size_t k = 0; k < N / 2; ++k)
     {
-        Complex t = std::polar(1.0, -2 * PI * k / N) * odd[k];
+        Complex t = std::polar(1.0, -2 * M_PI * k / N) * odd[k];
         x[k] = even[k] + t;
         x[k + N / 2] = even[k] - t;
     }
