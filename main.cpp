@@ -10,7 +10,7 @@
 
 using namespace std;
 
-const int N = 1000;
+const int N = 1024;
 Complex in[N];
 double test[N];
 double t[N];//time vector 
@@ -55,7 +55,7 @@ void displayFreqSpec()
 {
     char str[] = "hello";
     glDisable(GL_DEPTH_TEST); glDisable(GL_BLEND);
-    glDisable(GL_LINE_SMOOTH); glLineWidth(2);
+    glDisable(GL_LINE_SMOOTH); glLineWidth(3);
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
@@ -87,9 +87,9 @@ int main(int argc, char** argv)
     for (int i = 0; i < N; i++)
     {
         t[i] = i * T;
-        in[i] = { (0.7 * cos(2 * M_PI * 15 * t[i])), (0.7 * sin(2 * M_PI * f * t[i])) };// generate (complex) sine waveform
-        //double multiplier = 0.5 * (1 - cos(2 * M_PI * i / (N)));//Hanning Window
-        //in[i] = multiplier * in[i];
+        in[i] = { (0.7 * cos(2 * M_PI * 25 * t[i])), (0.7 * sin(2 * M_PI * f * t[i])) };// generate (complex) sine waveform
+        double multiplier = 0.5 * (1 - cos(2 * M_PI * i / (N)));//Hanning Window
+        in[i] = multiplier * in[i];
         test[i] = in[i].real() + in[i].imag();
     }
     CArray data(in, N);
@@ -127,15 +127,15 @@ int main(int argc, char** argv)
 
     //might need this part to calculate spectrogram
     int tpCount = N;
-    int values[1000];
+    int values[N];
 
-    for (int i = 0; i < 1000; i++)
+    for (int i = 0; i < N; i++)
         values[i] = i;
     float timePeriod = tpCount / Fs;
 
     //printf("\n");
 
-    for (int i = 0; i < 1000; i++)
+    for (int i = 0; i < N; i++)
     {
         frequencies[i] = values[i] / timePeriod;
     }
