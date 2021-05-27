@@ -10,144 +10,90 @@
 
 using namespace std;
 
-const int N = 1024;
+const int N = 4096; // samples
 Complex in[N];
-double test[N];
 double t[N];//time vector 
-float frequencies[N];
-double mag[N];
+double magnitude[N];
+double dBm[N / 64][N / 64]; // used to convert FFT output to dBm
+double spectrums[N / 64][N / 64];
 
-
-void drawText(float x, float y, char *string) {
-    int len, i;
-    glRasterPos2f(x, y);
-    len = (int)strlen(string);
-    for (i = 0; i < len; i++)
-    {
-        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, string[i]);
-    }
-}
-
-void display()
-{
-    glDisable(GL_DEPTH_TEST); glDisable(GL_BLEND);
-    glDisable(GL_LINE_SMOOTH); glLineWidth(2);
+void displaySpectrogram() {
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glOrtho(-6, 6, -6, 6, -1, 1);
+    glOrtho(0, 64, 0, 64, -1, 1); // project a 64x64 matrix on a 32x32 window for better resolution
+    glPointSize(5);
 
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-
-
-    glColor4f(0.4, 1.0, 0.6, 1);
-    glBegin(GL_LINE_STRIP);
-    for (int i = 0; i < N; i++)
+    glClear(GL_COLOR_BUFFER_BIT); // Clear the color buffer (background)
+    glBegin(GL_POINTS);
+    for (int i = 0; i < 64; i++) // go over the array of colors
     {
-        glVertex2f(t[i] - 5, test[i]);
+        for (int j = 0; j < 64; j++)
+        {
+            glColor3f(dBm[i][j], dBm[i][j], dBm[i][j]);
+            glVertex2f(j, i);
+        }
     }
     glEnd();
-    glutSwapBuffers();
-}
 
-void displayFreqSpec()
-{
-    char str[] = "hello";
-    glDisable(GL_DEPTH_TEST); glDisable(GL_BLEND);
-    glDisable(GL_LINE_SMOOTH); glLineWidth(3);
-
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0, 6, 0, 6, -1, 1);
-    glScalef(0.1, 0.03, 0.1);
-    glRotatef(0, 0, 0, 10);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-
-
-    glColor4f(0.4, 1.0, 0.6, 1);
-    glBegin(GL_LINE_STRIP);
-    for (int i = 0; i < N / 2; i++)
-    {
-        glVertex2f(frequencies[i] + 5, mag[i]);
-    }
-    glEnd();
-    glutSwapBuffers();
+    glFlush();  // Render now
 }
 
 int main(int argc, char** argv)
 {
-    int i;
-    double y;
     const double Fs = 100;//How many time points are needed i,e., Sampling Frequency
     const double  T = 1 / Fs;//# At what intervals time points are sampled
-    const double f = 4;//frequency
-
+    double f = 4;//frequency
+    int chuck_size = 64; // chunk size (N / 64=64 chunks)
+    Complex chuck[64];
+    int j = 0;
+    int counter = 0;
+    double max_dBm = 0.0;
     for (int i = 0; i < N; i++)
     {
         t[i] = i * T;
-        in[i] = { (0.7 * cos(2 * M_PI * 25 * t[i])), (0.7 * sin(2 * M_PI * f * t[i])) };// generate (complex) sine waveform
-        double multiplier = 0.5 * (1 - cos(2 * M_PI * i / (N)));//Hanning Window
+        in[i] = { (0.7 * cos(2 * M_PI * f * t[i])), (0.7 * sin(2 * M_PI * f * t[i])) };// generate (complex) sine waveform
+        double multiplier = 0.5 * (1 - cos(2 * M_PI * i / (64)));//Hanning Window
         in[i] = multiplier * in[i];
-        test[i] = in[i].real() + in[i].imag();
+        chuck[j] = in[i]; // take every value and put it in chunk until 64
+        //compute FFT for each chunk
+        if (i + 1 == chuck_size) // for each set of 64 chunks (i.e. 64,128,192), apply FFT and save it all in a 1d array (magnitude)
+        {
+            f = f + 1.5;
+            chuck_size += 64;
+            CArray data(chuck, 64); // Apply fft for 64 chunk
+            fft(data);
+            j = 0;
+            for (int h = 0; h < 64; h++)
+            {
+                magnitude[counter] = abs(data[h]); // save it all in 1d array (we switch it to 2d later on)
+
+                if (30 + (20 * log10(magnitude[counter])) > max_dBm) // already get the max dBm value to normalize later on
+                    max_dBm = 30 + (20 * log10(magnitude[counter]));
+
+                counter++;
+            }
+
+        }
+        else
+            j++;
     }
-    CArray data(in, N);
-
-
-    printf("\n");
-    printf("  Input Data(only the imag value):\n");
-    printf("\n");
-
-    for (i = 0; i < N; i++)
+    counter = 0; 
+    // We want to save the magnitude into a 2d array of 64x64 inorder to plot the spectrogram, for that we'll go over the array and save it to a new 2d array.
+    for (int i = 0; i < 64; i++)
     {
-        printf("%4d  %12f\n", i, in[i].real()); 
-    }
-
-
-    fft(data);
-
-    /*
-    printf("output Data from FFT implementation:\n");
-
-    for (int i = 0; i < N; ++i)
-    {
-        std::cout << data[i] << std::endl;
-    }
-
-    */
-
-   printf("\n");
-   printf("log magnitude of frequency domain components :\n");
-    for (i = 0; i < N; i++)
-    {
-        mag[i] = std::abs(data[i]);
-        std::cout << mag[i] << endl;
-    }
-
-    //might need this part to calculate spectrogram
-    int tpCount = N;
-    int values[N];
-
-    for (int i = 0; i < N; i++)
-        values[i] = i;
-    float timePeriod = tpCount / Fs;
-
-    //printf("\n");
-
-    for (int i = 0; i < N; i++)
-    {
-        frequencies[i] = values[i] / timePeriod;
+        for (int j = 0; j < 64; j++)
+        {
+            dBm[i][j] = (30 + (20 * log10(magnitude[counter]))) / max_dBm; // Normalize output
+            counter++;
+        }
     }
 
     // GUI Stuff
-    glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
-    glutInitWindowSize(600, 600);
-
-    glutCreateWindow("Graph showing the waveform after hanning window");
-    //glutDisplayFunc(display);
-    glutDisplayFunc(displayFreqSpec);
-    glutMainLoop();
+    glutInit(&argc, argv);                 // Initialize GLUT
+    glutCreateWindow("32z32 spectrogram"); // Create a window with the given title
+    glutInitWindowSize(32, 32);   // Set the window's initial width & height
+    glutDisplayFunc(displaySpectrogram); // Register display callback handler for window re-paint
+    glutMainLoop();           // Enter the event-processing loop
     return 0;
 }
