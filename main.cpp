@@ -7,9 +7,8 @@
 #include <algorithm>
 #include <vector>
 using namespace std;
-
-const int N = 204800; // Samples
-const int TIME_RESOLUTION = 400;
+const int N = 131072; // Samples
+const int TIME_RESOLUTION = 256;
 const int FREQUENCY_RESOLUTION = 512;
 vector< vector<double> > dBm(TIME_RESOLUTION, std::vector<double>(FREQUENCY_RESOLUTION, 0));
 
@@ -58,7 +57,7 @@ void displaySpectrogram() {
 
 Complex ApplyHanningWindow(vector<Complex> &in, int i, int chuck_size)
 {
-    double multiplier = 0.5 * (1 - cos(2 * M_PI * i / (chuck_size)));//Hanning Window
+    double multiplier = 0.7 * (1 - cos(2 * M_PI * i / (chuck_size)));//Hanning Window
     return in[i] * multiplier;
 }
 
@@ -77,24 +76,35 @@ void NormalizedBm(double max_dBm, vector<double> magnitude)
 
 int main(int argc, char** argv)
 {
-    vector<Complex> in(N); // Hold the samples (Complex sine wave)
-    vector<double> t(N); // Time vector 
-    vector<double> magnitude(N);
+
+    int to_complete = log2(N);
+    int number_of_zeros = 0;
+    if (pow(2, to_complete) < N)
+        number_of_zeros = pow(2, to_complete + 1) - N;
+
+    vector<Complex> in(N + number_of_zeros); // Hold the samples (Complex sine wave)
+    vector<double> t(N + number_of_zeros); // Time vector 
+    vector<double> magnitude(N + number_of_zeros);
 
 
     const double Fs = 100; // How many time points are needed i,e., Sampling Frequency
     const double  T = 1 / Fs; // At what intervals time points are sampled
     double f = 4; // Frequency
+
     int chuck_size = FREQUENCY_RESOLUTION; // Chunk size (N / 64=64 chunks)
     Complex chuck[FREQUENCY_RESOLUTION];
     int j = 0;
     int counter = 0;
     double max_dBm = 0.0;
-
-    for (int i = 0; i < N; i++)
+    bool visited = false;
+    for (int i = 0; i < N+number_of_zeros; i++)
     {
         t[i] = i * T;
         in[i] = { (0.7 * cos(2 * M_PI * f * t[i])), (0.7 * sin(2 * M_PI * f * t[i])) };// generate (complex) sine waveform
+
+        if (i > N)
+            in[i] = { {0},{0} };
+  
 
         in[i] = ApplyHanningWindow(in, i, FREQUENCY_RESOLUTION);
 
