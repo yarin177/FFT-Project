@@ -7,23 +7,23 @@
 #include <algorithm>
 #include <vector>
 using namespace std;
-const int N = 131072; // Samples
-const int TIME_RESOLUTION = 256;
+const int N = 262144; // Samples
+const int TIME_RESOLUTION = 512;
 const int FREQUENCY_RESOLUTION = 512;
-vector< vector<double> > dBm(TIME_RESOLUTION, std::vector<double>(FREQUENCY_RESOLUTION, 0));
+vector< vector<float> > dBm(TIME_RESOLUTION, std::vector<float>(FREQUENCY_RESOLUTION, 0));
 
 struct Color { // Represents a pixel color
-    double R;
-    double G;
-    double B;
+    float R;
+    float G;
+    float B;
 };
 
-Color GetColorEntry(double x) { // Converts dBm entry to RGB color entry
+Color GetColorEntry(float x) { // Converts dBm entry to RGB color entry
     Color pixel;
     x = 3 * x;
-    double R = min(x, 1.0);
-    double G = min(1.0, max(x - 1, 0.0));
-    double B = min(1.0, max(x - 2, 0.0));
+    float R = min(x, 1.0f);
+    float G = min(1.0f, max(x - 1, 0.0f));
+    float B = min(1.0f, max(x - 2, 0.0f));
     pixel = { R,G,B };
     return pixel;
 }
@@ -34,11 +34,10 @@ void displaySpectrogram() {
     glLoadIdentity();
     glOrtho(0, FREQUENCY_RESOLUTION, 0, TIME_RESOLUTION, -1, 1); // Project a 64x64 matrix on a 640x640 window for better overview
     //glPointSize(10); // Because the window size is x10 bigger, we'll enlarge each point by x10
-    double R = 0, G = 0, B = 0;
+    float R = 0, G = 0, B = 0;
 
     glClear(GL_COLOR_BUFFER_BIT); // Clear the color buffer (background)
     glBegin(GL_POINTS);
-    double x = 0;
     Color colors;
 
     for (int i = 0; i < TIME_RESOLUTION; i++) // go over the array of colors
@@ -57,11 +56,11 @@ void displaySpectrogram() {
 
 Complex ApplyHanningWindow(vector<Complex> &in, int i, int chuck_size)
 {
-    double multiplier = 0.7 * (1 - cos(2 * M_PI * i / (chuck_size)));//Hanning Window
+    float multiplier = 0.7 * (1 - cos(2 * M_PI * i / (chuck_size)));//Hanning Window
     return in[i] * multiplier;
 }
 
-void NormalizedBm(double max_dBm, vector<double> magnitude)
+void NormalizedBm(float max_dBm, vector<float> magnitude)
 {
     int counter = 0;
     for (int i = 0; i < TIME_RESOLUTION; i++)
@@ -83,24 +82,22 @@ int main(int argc, char** argv)
         number_of_zeros = pow(2, to_complete + 1) - N;
 
     vector<Complex> in(N + number_of_zeros); // Hold the samples (Complex sine wave)
-    vector<double> t(N + number_of_zeros); // Time vector 
-    vector<double> magnitude(N + number_of_zeros);
+    vector<float> magnitude(N + number_of_zeros);
 
 
-    const double Fs = 100; // How many time points are needed i,e., Sampling Frequency
+    const float Fs = 100; // How many time points are needed i,e., Sampling Frequency
     const double  T = 1 / Fs; // At what intervals time points are sampled
-    double f = 4; // Frequency
+    float f = 4; // Frequency
 
     int chuck_size = FREQUENCY_RESOLUTION; // Chunk size (N / 64=64 chunks)
     Complex chuck[FREQUENCY_RESOLUTION];
     int j = 0;
     int counter = 0;
-    double max_dBm = 0.0;
+    float max_dBm = 0.0;
     bool visited = false;
     for (int i = 0; i < N+number_of_zeros; i++)
     {
-        t[i] = i * T;
-        in[i] = { (0.7 * cos(2 * M_PI * f * t[i])), (0.7 * sin(2 * M_PI * f * t[i])) };// generate (complex) sine waveform
+        in[i] = { (float)(0.7 * cos(2 * M_PI * f * (i * T))), (float)(0.7 * sin(2 * M_PI * f * (i * T))) };// generate (complex) sine waveform
 
         if (i > N)
             in[i] = { {0},{0} };
