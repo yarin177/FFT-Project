@@ -1,16 +1,19 @@
 #define _USE_MATH_DEFINES
-#include <GL/glut.h>
 #include <stdio.h>
 #include <iostream>
 #include <cmath>
 #include "fft.h"
 #include <algorithm>
 #include <vector>
+
+#include <QApplication>
+#include <QImage>
+#include <QLabel>
+
 using namespace std;
-const int N = 262144; // Samples
-const int TIME_RESOLUTION = 512;
+const int N = 524288; // Samples
+const int TIME_RESOLUTION = 1024;
 const int FREQUENCY_RESOLUTION = 512;
-vector< vector<float> > dBm(TIME_RESOLUTION, std::vector<float>(FREQUENCY_RESOLUTION, 0));
 
 struct Color { // Represents a pixel color
     float R;
@@ -19,39 +22,14 @@ struct Color { // Represents a pixel color
 };
 
 Color GetColorEntry(float x) { // Converts dBm entry to RGB color entry
+    x = max(0.0f,3*x);
     Color pixel;
     x = 3 * x;
-    float R = min(x, 1.0f);
-    float G = min(1.0f, max(x - 1, 0.0f));
-    float B = min(1.0f, max(x - 2, 0.0f));
+    float R = min(x, 1.0f) * 255;
+    float G = min(1.0f, max(x - 1, 0.0f)) * 255;
+    float B = min(1.0f, max(x - 2, 0.0f)) * 255;
     pixel = { R,G,B };
     return pixel;
-}
-
-void displaySpectrogram() {
-
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0, FREQUENCY_RESOLUTION, 0, TIME_RESOLUTION, -1, 1); // Project a 64x64 matrix on a 640x640 window for better overview
-    //glPointSize(10); // Because the window size is x10 bigger, we'll enlarge each point by x10
-    float R = 0, G = 0, B = 0;
-
-    glClear(GL_COLOR_BUFFER_BIT); // Clear the color buffer (background)
-    glBegin(GL_POINTS);
-    Color colors;
-
-    for (int i = 0; i < TIME_RESOLUTION; i++) // go over the array of colors
-    {
-        for (int j = 0; j < FREQUENCY_RESOLUTION; j++)
-        {
-            colors = GetColorEntry(dBm[i][j]);
-            glColor3f(colors.R, colors.G, colors.B);
-            glVertex2f(j, i);
-        }
-    }
-    glEnd();
-
-    glFlush();  // Render now
 }
 
 Complex ApplyHanningWindow(vector<Complex> &in, int i, int chuck_size)
@@ -60,7 +38,25 @@ Complex ApplyHanningWindow(vector<Complex> &in, int i, int chuck_size)
     return in[i] * multiplier;
 }
 
-void NormalizedBm(float max_dBm, vector<float> magnitude)
+QImage displaySpectrogram(vector<vector<float>> dBm)
+{
+    QImage image(QSize(FREQUENCY_RESOLUTION, TIME_RESOLUTION), QImage::Format_RGB32);
+    QRgb value;
+
+    Color colors;
+
+    for(int i = 0; i < TIME_RESOLUTION; i++)
+    {
+        for(int j = 0; j < FREQUENCY_RESOLUTION; j++)
+        {
+            colors = GetColorEntry(dBm[i][j]);
+            value = qRgb(colors.R, colors.G, colors.B);
+            image.setPixel(j, i, value);
+        }
+    }
+    return image;
+}
+vector<vector<float>> NormalizedBm(float max_dBm, vector<float> magnitude, vector<vector<float>> dBm)
 {
     int counter = 0;
     for (int i = 0; i < TIME_RESOLUTION; i++)
@@ -71,10 +67,15 @@ void NormalizedBm(float max_dBm, vector<float> magnitude)
             counter++;
         }
     }
+    return dBm;
 }
 
 int main(int argc, char** argv)
 {
+    // GUI Stuff
+    QApplication app (argc, argv);
+    
+    vector< vector<float> > dBm(TIME_RESOLUTION, std::vector<float>(FREQUENCY_RESOLUTION, 0));
 
     int to_complete = log2(N);
     int number_of_zeros = 0;
@@ -94,7 +95,6 @@ int main(int argc, char** argv)
     int j = 0;
     int counter = 0;
     float max_dBm = 0.0;
-    bool visited = false;
     for (int i = 0; i < N+number_of_zeros; i++)
     {
         in[i] = { (float)(0.7 * cos(2 * M_PI * f * (i * T))), (float)(0.7 * sin(2 * M_PI * f * (i * T))) };// generate (complex) sine waveform
@@ -110,7 +110,7 @@ int main(int argc, char** argv)
         //compute FFT for each chunk
         if (i + 1 == chuck_size) // for each set of 64 chunks (i.e. 64,TIME_RESOLUTION,192), apply FFT and save it all in a 1d array (magnitude)
         {
-            //f = f + 0.235;
+            //f = f + 0.18;
             chuck_size += FREQUENCY_RESOLUTION;
             CArray data(chuck, FREQUENCY_RESOLUTION); // Apply fft for 64 chunk
             fft(data);
@@ -129,13 +129,13 @@ int main(int argc, char** argv)
         else
             j++;
     }
-    NormalizedBm(max_dBm, magnitude);
+   dBm = NormalizedBm(max_dBm, magnitude, dBm);
 
-    // GUI Stuff
-    glutInit(&argc, argv);                 // Initialize GLUT
-    glutInitWindowSize(FREQUENCY_RESOLUTION, TIME_RESOLUTION);   // Set the window's initial TIME_RESOLUTION & FREQUENCY_RESOLUTION
-    glutCreateWindow("spectrogram"); // Create a window with the given title
-    glutDisplayFunc(displaySpectrogram); // Register display callback handler for window re-paint
-    glutMainLoop();           // Enter the event-processing loop
-    return 0;
+    QImage image = displaySpectrogram(dBm);
+
+    QLabel window;
+    window.setPixmap(QPixmap::fromImage(image));
+    window.show();
+
+    return app.exec();
 }
