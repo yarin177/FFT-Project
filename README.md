@@ -14,21 +14,21 @@ Install it on **ubuntu** by running this line in the terminal:
 
 <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Qt_logo_2016.svg/1200px-Qt_logo_2016.svg.png" alt="drawing" width="200"/>
 
-##Compiling and running 
-####Assuming you have these  3 files in your current directory:
+## Compiling and running 
+#### Assuming you have these  3 files in your current directory:
 
-> fft.h
+>fft.h
 >main.cpp
 >main.pro
 
-###FIrstly, run:
+### FIrstly, run:
 
 **`$ qmake`** 
 
-####**"Makefile"** file should be created.
+#### **"Makefile"** file should be created.
 
-####Then, you can simply compile and run the program by running this line each time:
+#### Then, you can simply compile and run the program by running this line each time:
 
 **`$ make && ./spectrogram`**
 
-###End
+### End
