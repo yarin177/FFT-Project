@@ -18,7 +18,9 @@ Install it on **ubuntu** by running this line in the terminal:
 #### Assuming you have these  3 files in your current directory:
 
 >fft.h
+
 >main.cpp
+
 >main.pro
 
 ### FIrstly, run:
