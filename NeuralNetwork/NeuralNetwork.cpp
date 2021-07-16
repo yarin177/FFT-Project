@@ -69,7 +69,19 @@ vector<float> NeuralNetwork::predict(vector<float> inputs_vector) {
 	MatrixXf output = this->weights_ho * hidden;
 	output += this->bias_o;
 	map(output);
-	return matrixToVector(output);
+	
+	vector<float> results = matrixToVector(output);
+	vector<float> softmax;
+	float denominator = 0;
+	for (int i = 0; i < results.size(); i++)
+	{
+		denominator += results[i];
+	}
+	for (int i = 0; i < results.size(); i++)
+	{
+		softmax.push_back(results[i] / denominator);
+	}
+	return softmax;
 
 }
 void NeuralNetwork::train(vector<float> inputs_vector, vector<float> answers)
