@@ -22,7 +22,7 @@ def plot_graph2d(t1,data1,t2,data2):
     plt.legend(['FM Signal', 'Original Signal'], loc='lower right')
     plt.show()
 
-def generateSignalAM(time_vector,data):
+def generateSignalAM(data,time_vector):
 
     TWO_PI = 2 * np.pi
     carrier_hz = 20000
@@ -34,10 +34,10 @@ def generateSignalAM(time_vector,data):
     modulated = envelope * carrier
     return modulated
 
-def frequency_modulate(slc,t, fc=None, b=.3):
+def generateSignalFM(slc,t, fc=None, b=.3):
     N = len(slc)
     if fc is None:
-        fc = N / 18  # arbitrary
+        fc = 75000 # arbitrary
 
     x0 = slc[:N]
     # ensure it's [-.5, .5] so diff(phi) is b*[-pi, pi]
@@ -86,13 +86,27 @@ def readAudioFile(file_name, sample_for,start_time=0):
     time = np.arange(0,sample_for,1/sample_rate) #time vector
     return time,split_data, sample_rate
 
-def writeCSV(file_name, start_index, end_index, data):
-    f = open(file_name + '.csv', 'w', newline='')
+def writeCSV(file_name, data):
+    len_training = int(len(data) * 0.9)
+    len_testing = int(len(data) * 0.1)
+
+    training_file_name = 'training' + file_name + str(len_training) + '.csv'
+    f = open(training_file_name, 'w', newline='')
     writer = csv.writer(f)
-    writer.writerows(data[start_index:end_index])
+    writer.writerows(data[0:len_training])
+    f.close()
+
+    testing_file_name = 'testing' + file_name + str(len_testing) + '.csv'
+    f = open(testing_file_name, 'w', newline='')
+    writer = csv.writer(f)
+    writer.writerows(data[len_training:len_training+len_testing])
+    f.close()
+
+    print("Save training file as '" + training_file_name + "'")
+    print("Save testing file as '" + testing_file_name + "'")
 
 def normalizeAudio(data):
-    return np.float32(data / max(data))
+    return np.float32((data / max(data)))
 
 def averageAudio(data):
     return np.float32(data / statistics.mean(data))
@@ -100,16 +114,19 @@ def averageAudio(data):
 def main():
     SAMPLE_FOR = 30 # in seconds
 
-    time_vector, data, sample_rate = readAudioFile('Recording.wav',SAMPLE_FOR,0)
+    samplerate, data = scipy.io.wavfile.read(r'Recording.wav')
+    data = data.astype('float64')
+    data = data[0:int(samplerate*SAMPLE_FOR)]
+    time = np.arange(0,SAMPLE_FOR,1/samplerate) #time vector
+    data = normalizeAudio(data)
     data /= (2*np.abs(data).max())
-    fm = frequency_modulate(data,time_vector,fc=0,b=5)
-    plot_graph2d(time_vector,data,time_vector,fm)
-    #mod = generateSignalAM(split_time,split_data)
-    #plot_graph2d(split_time,split_data,split_time,mod)
-    #plot_graph(split_time,fm)
-    #amp = generateSignalFM(time_vector,data)
-    #writingData = getWritingData(SAMPLE_FOR,sample_rate,amp)
-    #writeCSV('trainingAM4500',0,4500,writingData)
+    fm = generateSignalFM(data,time)
+    am = generateSignalAM(data,time)
+    writingDataFM = getWritingData(SAMPLE_FOR,samplerate,fm)
+    writingDataAM = getWritingData(SAMPLE_FOR,samplerate,am)
+
+    writeCSV('FM',writingDataFM)
+    writeCSV('AM',writingDataAM)
     
 if __name__ == "__main__":
     main()
