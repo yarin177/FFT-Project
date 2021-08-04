@@ -39,16 +39,22 @@ public:
 
 class TrainingHandler {
 private:
-    float label;
+    int label;
     vector<float> data;
 
 public:
-    TrainingHandler(vector<float> data, int label)
+    void setTrainingHandler(vector<float> data, int label)
     {
         this->data = data;
         this->label = label;
     }
+    TrainingHandler getTrainingHandlerObject(vector<float> data, int label)
+    {
+        TrainingHandler tmp;
+        tmp.setTrainingHandler(data, label);
+        return tmp;
+    }
 
     vector<float> getInputs() { return data; }
-    vector<float> getTarget() { return  vector<float> {label}; }
+    int getTarget() { return  label; }
 };
