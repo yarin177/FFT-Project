@@ -1,11 +1,7 @@
-from numpy.lib.shape_base import split
 import scipy.io.wavfile
 import matplotlib.pyplot as plt
 import numpy as np
 import csv
-from scipy import signal
-import scipy.integrate as integrate
-import statistics
 
 def plot_graph(t,data):
     plt.plot(t,data)
@@ -102,24 +98,26 @@ def writeCSV(file_name, data):
     writer.writerows(data[len_training:len_training+len_testing])
     f.close()
 
-    print("Save training file as '" + training_file_name + "'")
-    print("Save testing file as '" + testing_file_name + "'")
+    print("Saved training file as '" + training_file_name + "'")
+    print("Saved testing file as '" + testing_file_name + "'")
 
 def normalizeAudio(data):
     return np.float32((data / max(data)))
 
-def averageAudio(data):
-    return np.float32(data / statistics.mean(data))
-
 def main():
     SAMPLE_FOR = 30 # in seconds
-
     samplerate, data = scipy.io.wavfile.read(r'Recording.wav')
+    print('Sampling for ' + str(SAMPLE_FOR) + ' seconds with sample rate of ' + str(samplerate))
     data = data.astype('float64')
     data = data[0:int(samplerate*SAMPLE_FOR)]
     time = np.arange(0,SAMPLE_FOR,1/samplerate) #time vector
     data = normalizeAudio(data)
     data /= (2*np.abs(data).max())
+    print('Dividing ' + str(len(data)) + ' samples to chunks of 256 (' + str(int(len(data) / 256)) + ' chunks total)')
+    len_training = str(int((len(data) / 256) * 0.9))
+    len_testing = str(int((len(data) / 256) * 0.1))
+    print(len_training + ' chunks will be used for training')
+    print(len_testing + ' chunks will be used for testing\n')
     fm = generateSignalFM(data,time)
     am = generateSignalAM(data,time)
     writingDataFM = getWritingData(SAMPLE_FOR,samplerate,fm)
