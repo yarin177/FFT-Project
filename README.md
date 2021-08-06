@@ -1,19 +1,53 @@
 
-## Installation process:
+
+
+# Neural Network Installation process:
 
 Start by cloning this git repository by running the following command in the terminal:
 
 **`git clone https://github.com/yarin177/FFT-Project.git`**
 
-Next we need to generate training and testing files.
-At the moment I am using Python for this, make sure you have **Python >=3.6** installed.
+This project uses [Eigen library](https://eigen.tuxfamily.org/) for linear algebra calculations, to install it run the following command in the terminal:
 
+**`sudo apt install libeigen3-dev`**
+
+Head over to [PythonAudioProcessing](https://github.com/yarin177/FFT-Project/tree/main/PythonAudioProcessing) folder through the terminal (`cd FFT-Project/PythonAudioProcessing`)
+
+And install python script dependencies by running:
+
+**`pip install -r requirements.txt`**
+
+**Note**: **Python >=3.6** is required for this project.
+
+## Quick Start:
+### Generating Training and Testing files
 Now it's time to run the script by running the following command:
 
 **`python proccess_audio_sounds.py`**
 
-- Make sure you cloned the git repository as it is needed to compile the program.
-- The project uses **Qt framework**  library  to output a  spectrogram.
+This script reads an audio wav file and performs Amplitude Modulation & Frequency Modulation, then it splits the data into 4  CSV files which would be used for training and testing the Neural Network.
+
+
+These files will be saved in the default path location which is the [NeuralNetwork](https://github.com/yarin177/FFT-Project/tree/main/NeuralNetwork) folder.
+
+### Training and Testing the Neural Network
+Now we are all set to compile and run the Neural Network! :)
+Head over to the [NeuralNetwork](https://github.com/yarin177/FFT-Project/tree/main/NeuralNetwork) folder, you should see 4 new files there:
+
+ - testingAM516.csv 
+ - testingFM516.csv  
+ - trainingAM4650.csv 
+ - trainingFM4650.csv
+
+These are the training and testing files we generated earlier.
+
+To compile and run the program all together run the following line:
+
+...
+
+# Spectrogram Installation 
+
+The project uses **Qt framework**  library  to output a  spectrogram.
 Install it on **ubuntu** by running this line in the terminal:
 
 **`$ sudo apt-get install qt5-default`**
