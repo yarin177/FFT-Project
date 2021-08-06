@@ -1,6 +1,7 @@
 
 
 
+
 # Neural Network Installation process:
 
 Start by cloning this git repository by running the following command in the terminal:
@@ -23,7 +24,7 @@ And install python script dependencies by running:
 ### Generating Training and Testing files
 Now it's time to run the script by running the following command in the [PythonAudioProcessing](https://github.com/yarin177/FFT-Project/tree/main/PythonAudioProcessing) folder:
 
-**`python proccess_audio_sounds.py`**
+**`python process_audio_sounds.py`**
 
 This script reads an audio wav file and performs Amplitude Modulation & Frequency Modulation, then it splits the data into 4  CSV files which would be used for training and testing the Neural Network.
 
@@ -43,8 +44,7 @@ These are the training and testing files we generated earlier.
 
 To compile and run the program all together run the following line:
 
-...
-
+**`g++ -c NeuralNetwork.cpp -o NeuralNetwork.o && g++ main.cpp NeuralNetwork.o -o compiled && ./compiled`**
 # Spectrogram Installation 
 
 The project uses **Qt framework**  library  to output a  spectrogram.
