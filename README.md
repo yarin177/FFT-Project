@@ -21,7 +21,7 @@ And install python script dependencies by running:
 
 ## Quick Start:
 ### Generating Training and Testing files
-Now it's time to run the script by running the following command:
+Now it's time to run the script by running the following command in the [PythonAudioProcessing](https://github.com/yarin177/FFT-Project/tree/main/PythonAudioProcessing) folder:
 
 **`python proccess_audio_sounds.py`**
 
