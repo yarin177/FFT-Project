@@ -149,3 +149,151 @@ void NeuralNetwork::train(vector<float> inputs_vector, vector<float> answers)
 	// Adjust the bias by its deltas (which is just the gradients)
 	this->bias_h += hidden_gradient;
 }
+
+vector<string> matrixToTxt(MatrixXf in)
+{
+	vector<string> data;
+	data.push_back("{");
+	for (int i = 0; i < in.rows(); i++)
+	{
+		for (int j = 0; j < in.cols(); j++)
+		{
+			if (j != in.cols())
+			{
+				data.push_back(std::to_string(in(i, j)));
+				data.push_back(" ");
+			}
+
+			else
+			{
+				data.push_back(std::to_string(in(i, j)));
+			}
+
+		}
+		data.push_back("\n");
+	}
+	data.pop_back();
+	data.pop_back();
+	data.push_back("}");
+	return data;
+}
+void NeuralNetwork::saveModel() 
+{
+	std::ofstream myfile;
+	myfile.open("Model.txt");
+	vector<vector<string>> txtData;
+	vector<string> weights_ih = matrixToTxt(this->weights_ih);
+	vector<string> weights_ho = matrixToTxt(this->weights_ho);
+	vector<string> bias_h = matrixToTxt(this->bias_h);
+	vector<string> bias_o = matrixToTxt(this->bias_o);
+
+	weights_ih.push_back("\n");
+	txtData.push_back(weights_ih);
+
+	weights_ho.push_back("\n");
+	txtData.push_back(weights_ho);
+
+	bias_h.push_back("\n");
+	txtData.push_back(bias_h);
+
+	txtData.push_back(bias_o);
+
+	for (int i = 0; i < txtData.size(); i++)
+	{
+		for (int j = 0; j < txtData[i].size(); j++)
+			myfile << txtData[i][j];
+	}
+	/*
+	myfile << "weights_ih=" << this->weights_ih << '\n';
+	myfile << "weights_ho=" << this->weights_ho << '\n';
+
+	myfile << "bias_h=" << this->bias_h << '\n';
+	myfile << "bias_o=" << this->bias_o << '\n';
+
+	myfile << "learning_rare=" << this->learning_rare << '\n';
+	*/
+	myfile.close();
+	std::cout << "Saved model to local folder" << std::endl;
+}
+MatrixXf vectorToMatrix2D(vector<string> in, int rows,int cols)
+{
+	MatrixXf m(cols, rows);
+	int counter = 0;
+	for (int i = 0; i < cols; i++)
+	{
+		for (int j = 0; j < rows; j++)
+		{
+			m(i, j) = ::atof(in[counter].c_str());
+			counter++;
+		}
+	}
+	return m;
+}
+vector<string> split(const string& s, char delim) 
+{
+	vector<string> elems;
+	std::stringstream ss(s);
+	string item;
+	while (getline(ss, item, delim)) {
+		elems.push_back(item);
+	}
+	return elems;
+}
+bool contains(const string& s, const char letter) {
+	for (int i = 0; i < s.length(); i++)
+	{
+		if (s[i] == letter)
+			return true;
+	}
+	return false;
+}
+vector<MatrixXf> NeuralNetwork::loadModel()
+{
+	std::ifstream file("Model.txt");
+	string str;
+	vector<string> data;
+	vector<MatrixXf> matrixs;
+	int rows = 0;
+	int cols = 0;
+	while (std::getline(file, str))
+	{
+		vector<string> start = split(str, '{');
+		if (start.size() == 2)
+		{
+			vector<string> subline = split(start[1], ' ');
+			rows = subline.size();
+			for (int i = 0; i < subline.size(); i++)
+			{
+				data.push_back(subline[i]);
+			}
+			cols++;
+		}
+		else if (contains(str,'}'))
+		{
+			vector<string> subline = split(str, ' ');
+			rows = subline.size();
+			for (int i = 0; i < subline.size(); i++)
+			{
+				data.push_back(subline[i]);
+			}
+			cols++;
+
+			matrixs.push_back(vectorToMatrix2D(data, rows, cols));
+			data.clear();
+			rows = 0;
+			cols = 0;
+		}
+		else
+		{
+			vector<string> line = split(str, ' ');
+			rows = line.size();
+			for (int i = 0; i < line.size(); i++)
+			{
+				data.push_back(line[i]);
+			}
+			cols++;
+		}
+	}
+	return matrixs;
+
+}
