@@ -2,6 +2,7 @@
 
 
 
+
 # Neural Network Installation process:
 
 Start by cloning this git repository by running the following command in the terminal:
@@ -33,8 +34,11 @@ These files will be saved in the default path location which is the [NeuralNetwo
 
 ### Training and Testing the Neural Network
 Now we are all set to compile and run the Neural Network! :)
-Head over to the [NeuralNetwork](https://github.com/yarin177/FFT-Project/tree/main/NeuralNetwork) folder, you should see 4 new files there:
+Head over to the [NeuralNetwork](https://github.com/yarin177/FFT-Project/tree/main/NeuralNetwork) folder.
 
+If you use **Linux**, change **NeuralNetwork.cpp second line** to include the right path to the Eigen folder we installed earlier, **default path** for Linux system is **/usr/include/eigen3/Eigen/Dense**.
+
+There should be 4 new files in that directory now:
  - testingAM516.csv 
  - testingFM516.csv  
  - trainingAM4650.csv 
