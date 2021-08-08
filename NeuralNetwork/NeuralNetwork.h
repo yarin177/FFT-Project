@@ -1,12 +1,14 @@
 #include <iostream>
-#include </usr/include/eigen3/Eigen/Dense>
+#include <Eigen/Dense>
 #include <vector>
-#include <ctime>
+#include<ctime>
+#include <fstream>
+#include <string>
 
 using Eigen::MatrixXf;
 using namespace Eigen;
 using std::vector;
-
+using std::string;
 
 class NeuralNetwork {
 
@@ -39,6 +41,19 @@ public:
 		learning_rare = 0.1;
 
 	}
+	NeuralNetwork() // Loads model from local text file
+	{
+		std::cout << "Loading Model from local file..." << std::endl;
+		vector<MatrixXf> data = loadModel();
+		this->weights_ih = data[0];
+		this->weights_ho = data[1];
+
+		this->bias_h = data[2];
+		this->bias_o = data[3];
+
+		learning_rare = 0.1;
+	}
+
 
 	float sigmoid(float x);
 	float dsigmoid(float y);
@@ -47,5 +62,7 @@ public:
 	MatrixXf vectorToMatrix(vector<float> in);
 	vector<float> matrixToVector(MatrixXf in);
 	vector<float> predict(vector<float> inputs_vector);
+	void saveModel();
+	vector<MatrixXf> loadModel();
 	void train(vector<float> inputs_vector, vector<float> answers);
 };
