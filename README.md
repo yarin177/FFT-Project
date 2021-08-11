@@ -6,7 +6,7 @@
 
 
 # Neural Network Installation process:
-## Windows installation process:
+## Windows:
 **The guide assumes you're using Visual Studio as an IDE.**
 
 Start by cloning this git repository by running the following command in the cmd:
@@ -60,7 +60,7 @@ Make sure that there are 4 csv files there:
 Now you can finally build and run the project through VS!! :)
 
 
-## Linux installation process:
+## Linux:
 Start by cloning this git repository by running the following command in the terminal:
 
 **`git clone https://github.com/yarin177/FFT-Project.git`**
