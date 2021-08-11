@@ -67,11 +67,11 @@ vector<vector<vector<float>>> readLocalFiles(string training_fm_path, string tra
 	vector<vector<vector<float>>> data;
 	std::cout << "Reading training files..." << std::endl;
 
-	vector<vector<float>> training_fm = dh.read_csv(training_fm_path);
-	vector<vector<float>> training_am = dh.read_csv(training_am_path);
+	vector<vector<float>> training_fm = dh.read_csv("TrainingTestingFiles/" + training_fm_path);
+	vector<vector<float>> training_am = dh.read_csv("TrainingTestingFiles/" + training_am_path);
 
-	vector<vector<float>> testing_fm = dh.read_csv(testing_fm_path);
-	vector<vector<float>> testing_am = dh.read_csv(testing_am_path);
+	vector<vector<float>> testing_fm = dh.read_csv("TrainingTestingFiles/" + testing_fm_path);
+	vector<vector<float>> testing_am = dh.read_csv("TrainingTestingFiles/" + testing_am_path);
 
 	data.push_back(training_fm);
 	data.push_back(training_am);
