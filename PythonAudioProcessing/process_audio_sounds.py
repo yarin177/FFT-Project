@@ -2,8 +2,6 @@ import scipy.io.wavfile
 import matplotlib.pyplot as plt
 import numpy as np
 import csv
-import argparse
-import os
 
 def plot_graph(t,data):
     plt.plot(t,data)
@@ -107,19 +105,9 @@ def normalizeAudio(data):
     return np.float32((data / max(data)))
 
 def main():
-    parser = argparse.ArgumentParser("Getting Path")
-    parser.add_argument("Path", nargs='?',help="This path would be used to save training and testing files", type=str)
-    args = parser.parse_args()
-    path = ''
-    if args.Path is None:
-        path = '../NeuralNetwork/'
-    else:
-        if os.path.isdir(args.Path):
-            print('Saving files to: ' + args.Path)
-            path = args.Path + '/'
-        else:
-            print('ERROR! ' + args.Path + ' is not a directory!!')
-            return
+    path = '../NeuralNetwork/TrainingTestingFiles/'
+    print('Saving files to: ' + path)
+
     SAMPLE_FOR = 30 # in seconds
     samplerate, data = scipy.io.wavfile.read(r'Recording.wav')
     print('Sampling for ' + str(SAMPLE_FOR) + ' seconds with sample rate of ' + str(samplerate))
