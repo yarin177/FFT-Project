@@ -4,6 +4,7 @@
 
 
 
+
 # Neural Network Installation process:
 
 Start by cloning this git repository by running the following command in the terminal:
@@ -31,25 +32,25 @@ Now it's time to run the script by running the following command in the [PythonA
 This script reads an audio wav file and performs Amplitude Modulation & Frequency Modulation, then it splits the data into 4  CSV files which would be used for training and testing the Neural Network.
 
 
-These files will be saved in the default path location which is the [NeuralNetwork](https://github.com/yarin177/FFT-Project/tree/main/NeuralNetwork) folder.
+These files will be saved in the default path location which is the [TrainingTestingFiles](https://github.com/yarin177/FFT-Project/tree/main/NeuralNetwork/TrainingTestingFiles) folder.
 
 ### Training and Testing the Neural Network
 Now we are all set to compile and run the Neural Network! :)
 Head over to the [NeuralNetwork](https://github.com/yarin177/FFT-Project/tree/main/NeuralNetwork) folder.
 
-First make sure you have CMake version >3.8 installed and if not run the following line:
-
-**`sudo apt install cmake`**
-
-If you use **Linux**, change **NeuralNetwork.cpp** second line to include the right path to the Eigen folder we installed earlier, **default path** for Linux system is **/usr/include/eigen3/Eigen/Dense**.
-
-There should be 4 new files in that directory now:
+Make sure that the **TrainingTestingFiles** folder includes 4 csv files:
  - testingAM516.csv 
  - testingFM516.csv  
  - trainingAM4650.csv 
  - trainingFM4650.csv
 
 These are the training and testing files we generated earlier.
+
+Next check that you have CMake version >3.8 installed, if not run the following line:
+
+**`sudo apt install cmake`**
+
+If you use **Linux**, change **NeuralNetwork.cpp** second line to include the right path to the Eigen folder we installed earlier, **default path** for Linux system is **/usr/include/eigen3/Eigen/Dense**.
 
 To compile and run the program with CMake run the following line:
 
