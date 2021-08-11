@@ -34,6 +34,8 @@ For example for me this path is:
 ### Generating Training and Testing files
 Now it's time to generate the training and testing files!
 
+**Note**: **Python >=3.6** is required for this project.
+
 Head over to [PythonAudioProcessing](https://github.com/yarin177/FFT-Project/tree/main/PythonAudioProcessing) folder through the terminal (`cd FFT-Project/PythonAudioProcessing`)
 And install python script dependencies by running:
 
