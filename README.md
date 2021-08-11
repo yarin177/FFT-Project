@@ -10,6 +10,7 @@
 **The guide assumes you're using Visual Studio as an IDE.**
 
 Start by cloning this git repository by running the following command in the cmd:
+
 **`git clone https://github.com/yarin177/FFT-Project.git`**
 
 This project uses [Eigen library](https://eigen.tuxfamily.org/) for linear algebra calculations.
