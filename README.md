@@ -23,6 +23,10 @@ And install python script dependencies by running:
 
 **Note**: **Python >=3.6** is required for this project.
 
+Lastly, check that you have CMake version >3.8 installed, if not run the following line:
+
+**`sudo apt install cmake`**
+
 ## Quick Start:
 ### Generating Training and Testing files
 Now it's time to run the script by running the following command in the [PythonAudioProcessing](https://github.com/yarin177/FFT-Project/tree/main/PythonAudioProcessing) folder:
@@ -45,10 +49,6 @@ Make sure that the **TrainingTestingFiles** folder includes 4 csv files:
  - trainingFM4650.csv
 
 These are the training and testing files we generated earlier.
-
-Next check that you have CMake version >3.8 installed, if not run the following line:
-
-**`sudo apt install cmake`**
 
 If you use **Linux**, change **NeuralNetwork.cpp** second line to include the right path to the Eigen folder we installed earlier, **default path** for Linux system is **/usr/include/eigen3/Eigen/Dense**.
 
