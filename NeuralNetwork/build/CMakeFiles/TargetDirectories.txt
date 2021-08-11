@@ -1,0 +1,3 @@
+/home/yarin/FFT-Project/NeuralNetwork/build/CMakeFiles/rebuild_cache.dir
+/home/yarin/FFT-Project/NeuralNetwork/build/CMakeFiles/main.dir
+/home/yarin/FFT-Project/NeuralNetwork/build/CMakeFiles/edit_cache.dir
