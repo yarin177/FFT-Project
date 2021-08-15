@@ -106,7 +106,7 @@ Make sure that the **TrainingTestingFiles** folder includes 4 csv files:
 
 These are the training and testing files we generated earlier.
 
-If you use **Linux**, change **NeuralNetwork.cpp** second line to include the right path to the Eigen folder we installed earlier, **default path** for Linux system is **/usr/include/eigen3/Eigen/Dense**.
+If you use **Linux**, change **NeuralNetwork.h** second line to include the right path to the Eigen folder we installed earlier, **default path** for Linux system is **/usr/include/eigen3/Eigen/Dense**.
 
 To build the project with CMake run the following lines from the NeuralNetwork folder Terminal:
 
