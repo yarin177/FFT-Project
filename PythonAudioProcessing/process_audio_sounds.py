@@ -116,9 +116,10 @@ def main():
     time = np.arange(0,SAMPLE_FOR,1/samplerate) #time vector
     data = normalizeAudio(data)
     data /= (2*np.abs(data).max())
-    print('Dividing ' + str(len(data)) + ' samples to chunks of 256 (' + str(int(len(data) / 256)) + ' chunks total)')
-    len_training = str(int((len(data) / 256) * 0.9))
-    len_testing = str(int((len(data) / 256) * 0.1))
+    total =  int(len(data) / 256)
+    print('Dividing ' + str(len(data)) + ' samples to chunks of 256 (' + str(total) + ' chunks total)')
+    len_training = str(int(total * 0.9))
+    len_testing = str(int(total * 0.1))
     print(len_training + ' chunks will be used for training')
     print(len_testing + ' chunks will be used for testing\n')
     fm = generateSignalFM(data,time)
@@ -131,4 +132,3 @@ def main():
     
 if __name__ == "__main__":
     main()
-
