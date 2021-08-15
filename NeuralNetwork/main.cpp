@@ -10,12 +10,12 @@ const float OUTPUTS = 2.0;
 
 int main()
 {
-	vector<vector<vector<float>>> files = readLocalFiles("trainingFM4650.csv", "trainingAM4650.csv", "testingFM516.csv", "testingAM516.csv");
-	vector<vector<TrainingHandler>> training_testing_vectors = arrangeFiles(files);
-	vector<vector<TrainingHandler>> shuffled_training_testing_vectors = getshuffledVectors(training_testing_vectors);
+	readLocalFiles("trainingFM4650.csv", "trainingAM4650.csv", "testingFM516.csv", "testingAM516.csv");
+	arrangeFiles(TRAINING_AMOUNT, TESTING_AMOUNT);
+	SortedFiles shuffled_files = getshuffledVectors();
 
-	vector<TrainingHandler> trainingData = shuffled_training_testing_vectors[0];
-	vector<TrainingHandler> testingData = shuffled_training_testing_vectors[1];
+	vector<TrainingHandler> trainingData = shuffled_files.trainingData;
+	vector<TrainingHandler> testingData = shuffled_files.testingData;
 
 	NeuralNetwork nn(256, 48, 2); // init a new Neural Network with 256 inputs, 48 hidden nodes and 3 outputs
 
@@ -44,5 +44,6 @@ int main()
 	float sure = average / correct;
 	std::cout << "% correct: " << perccent << " Average sure: " << sure << std::endl;
 	nn.saveModel();
+
 	return 0;
 }
