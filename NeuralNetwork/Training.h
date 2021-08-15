@@ -63,53 +63,76 @@ public:
 	int getTarget() { return  label; }
 };
 
-vector<vector<vector<float>>> readLocalFiles(string training_fm_path, string training_am_path, string testing_fm_path, string testing_am_path) {
+typedef struct LocalFile
+{
+	vector<vector<float>> data; // i.e vector with the size 512 data entries of 256
+};
+
+struct Files
+{
+	LocalFile training_fm;
+	LocalFile training_am;
+	LocalFile testing_fm;
+	LocalFile testing_am;
+} files;
+
+struct SortedFiles
+{
+	vector<TrainingHandler> trainingData;
+	vector<TrainingHandler> testingData;
+} sorted_files;
+
+void readLocalFiles(string training_fm_path, string training_am_path, string testing_fm_path, string testing_am_path) {
 	//Load training and testing files
 	DataHandler dh;
-	vector<vector<vector<float>>> data;
+
+	LocalFile training_fm;
+	LocalFile training_am;
+	LocalFile testing_fm;
+	LocalFile testing_am;
+
 	std::cout << "Reading training files..." << std::endl;
 
-	vector<vector<float>> training_fm = dh.read_csv(TrainingTestingPath + training_fm_path);
-	vector<vector<float>> training_am = dh.read_csv(TrainingTestingPath + training_am_path);
+	training_fm.data = dh.read_csv(TrainingTestingPath + training_fm_path);
+	training_am.data = dh.read_csv(TrainingTestingPath + training_am_path);
 
-	vector<vector<float>> testing_fm = dh.read_csv(TrainingTestingPath + testing_fm_path);
-	vector<vector<float>> testing_am = dh.read_csv(TrainingTestingPath + testing_am_path);
+	testing_fm.data = dh.read_csv(TrainingTestingPath + testing_fm_path);
+	testing_am.data = dh.read_csv(TrainingTestingPath + testing_am_path);
 
-	data.push_back(training_fm);
-	data.push_back(training_am);
-	data.push_back(testing_fm);
-	data.push_back(testing_am);
-	return data;
+	files.training_fm = training_fm;
+	files.training_am = training_am;
+	files.testing_fm = testing_fm;
+	files.testing_am = testing_am;
 }
 
-vector<vector<TrainingHandler>> arrangeFiles(vector<vector<vector<float>>> training_testing_data, const int FM = 0, const int AM = 1, const int TRAINING_AMOUNT = 4650, const int TESTING_AMOUNT = 516) {
+void arrangeFiles(const int TRAINING_AMOUNT, const int TESTING_AMOUNT, const int FM = 0, const int AM = 1) {
 
 	vector<TrainingHandler> trainingData;
 	vector<TrainingHandler> testingData;
-	vector<vector<TrainingHandler>> data;
+
 	TrainingHandler data_handler;
 
 	for (int i = 0; i < TRAINING_AMOUNT; i++)
 	{
-		trainingData.push_back(data_handler.getTrainingHandlerObject(training_testing_data[0][i], FM));
-		trainingData.push_back(data_handler.getTrainingHandlerObject(training_testing_data[1][i], AM));
+		trainingData.push_back(data_handler.getTrainingHandlerObject(files.training_fm.data[i], FM));
+		trainingData.push_back(data_handler.getTrainingHandlerObject(files.training_am.data[i], AM));
 		if (i < TESTING_AMOUNT)
 		{
-			testingData.push_back(data_handler.getTrainingHandlerObject(training_testing_data[2][i], FM));
-			testingData.push_back(data_handler.getTrainingHandlerObject(training_testing_data[3][i], AM));
+			testingData.push_back(data_handler.getTrainingHandlerObject(files.testing_fm.data[i], FM));
+			testingData.push_back(data_handler.getTrainingHandlerObject(files.testing_am.data[i], AM));
 		}
 	}
-	data.push_back(trainingData);
-	data.push_back(testingData);
-	return data;
+	sorted_files.trainingData = trainingData;
+	sorted_files.testingData = testingData;
+
 }
 
-vector<vector<TrainingHandler>> getshuffledVectors(vector<vector<TrainingHandler>> training_testing_vectors) {
+SortedFiles getshuffledVectors() {
 	// shuffle the vectors
 	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 	std::default_random_engine e(seed);
-	std::shuffle(training_testing_vectors[0].begin(), training_testing_vectors[0].end(), e);
-	std::shuffle(training_testing_vectors[1].begin(), training_testing_vectors[1].end(), e);
+	std::shuffle(sorted_files.trainingData.begin(), sorted_files.trainingData.end(), e);
+	std::shuffle(sorted_files.testingData.begin(), sorted_files.testingData.end(), e);
 
-	return training_testing_vectors;
+	return sorted_files;
 }
