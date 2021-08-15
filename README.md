@@ -5,6 +5,7 @@
 
 
 
+
 # Neural Network Installation process:
 ## Windows:
 **The guide assumes you're using Visual Studio as an IDE.**
@@ -96,6 +97,7 @@ These files will be saved in the default path location which is the [TrainingTes
 Now we are all set to compile and run the Neural Network! :)
 Head over to the [NeuralNetwork](https://github.com/yarin177/FFT-Project/tree/main/NeuralNetwork) folder.
 
+
 Make sure that the **TrainingTestingFiles** folder includes 4 csv files:
  - testingAM516.csv 
  - testingFM516.csv  
@@ -106,9 +108,16 @@ These are the training and testing files we generated earlier.
 
 If you use **Linux**, change **NeuralNetwork.cpp** second line to include the right path to the Eigen folder we installed earlier, **default path** for Linux system is **/usr/include/eigen3/Eigen/Dense**.
 
-To compile and run the program with CMake run the following line:
+To build the project with CMake run the following lines from the NeuralNetwork folder Terminal:
 
-**`cmake --build build && ./build/main`**
+    cd build
+    cmake ..
+    cd ..
+    cmake --build build
+After building we can run the program by running:
+
+    ./build/main 
+
 # Spectrogram Installation 
 
 The project uses **Qt framework**  library  to output a  spectrogram.
