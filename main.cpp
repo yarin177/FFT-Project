@@ -2,18 +2,39 @@
 #include <stdio.h>
 #include <iostream>
 #include <cmath>
-#include "fft.h"
+#include "fft.hpp"
 #include <algorithm>
 #include <vector>
+#include <fstream>
 
 #include <QApplication>
 #include <QImage>
 #include <QLabel>
 
 using namespace std;
-const int N = 524288; // Samples
-const int TIME_RESOLUTION = 1024;
-const int FREQUENCY_RESOLUTION = 512;
+const int N = 2048; // Samples
+const int TIME_RESOLUTION = 32;
+const int FREQUENCY_RESOLUTION = 64;
+
+vector<float> read_csv(std::string filename) {
+    vector<float> data;
+
+    // Create an input filestream
+    std::ifstream myFile(filename);
+
+    std::string line;
+    while (std::getline(myFile, line))
+    {
+        std::istringstream s(line);
+        std::string field;
+        vector<float> lineData;
+        while (getline(s, field, ',')) {
+            data.push_back(std::stof(field));
+        }
+        lineData.clear();
+    }
+    return data;
+}
 
 struct Color { // Represents a pixel color
     float R;
@@ -22,7 +43,7 @@ struct Color { // Represents a pixel color
 };
 
 Color GetColorEntry(float x) { // Converts dBm entry to RGB color entry
-    x = max(0.0f,3*x);
+    x = max(0.0f, 3 * x);
     Color pixel;
     x = 3 * x;
     float R = min(x, 1.0f) * 255;
@@ -32,7 +53,7 @@ Color GetColorEntry(float x) { // Converts dBm entry to RGB color entry
     return pixel;
 }
 
-Complex ApplyHanningWindow(vector<Complex> &in, int i, int chuck_size)
+Complex ApplyHanningWindow(vector<Complex>& in, int i, int chuck_size)
 {
     float multiplier = 0.7 * (1 - cos(2 * M_PI * i / (chuck_size)));//Hanning Window
     return in[i] * multiplier;
@@ -45,16 +66,17 @@ QImage displaySpectrogram(vector<vector<float>> dBm)
 
     Color colors;
 
-    for(int i = 0; i < TIME_RESOLUTION; i++)
+    for (int i = 0; i < TIME_RESOLUTION; i++)
     {
-        for(int j = 0; j < FREQUENCY_RESOLUTION; j++)
+        for (int j = 0; j < FREQUENCY_RESOLUTION; j++)
         {
             colors = GetColorEntry(dBm[i][j]);
             value = qRgb(colors.R, colors.G, colors.B);
             image.setPixel(j, i, value);
         }
     }
-    return image;
+    QImage img2 = image.scaled(640, 320, Qt::KeepAspectRatio);
+    return img2;
 }
 vector<vector<float>> NormalizedBm(float max_dBm, vector<float> magnitude, vector<vector<float>> dBm)
 {
@@ -73,10 +95,10 @@ vector<vector<float>> NormalizedBm(float max_dBm, vector<float> magnitude, vecto
 int main(int argc, char** argv)
 {
     // GUI Stuff
-    QApplication app (argc, argv);
-    
-    vector< vector<float> > dBm(TIME_RESOLUTION, std::vector<float>(FREQUENCY_RESOLUTION, 0));
+    QApplication app(argc, argv);
 
+    vector<vector<float>> dBm(TIME_RESOLUTION, std::vector<float>(FREQUENCY_RESOLUTION, 0));
+    vector<float> time_samples = read_csv("spec_samples.csv");
     int to_complete = log2(N);
     int number_of_zeros = 0;
     if (pow(2, to_complete) < N)
@@ -88,20 +110,20 @@ int main(int argc, char** argv)
 
     const float Fs = 100; // How many time points are needed i,e., Sampling Frequency
     const double  T = 1 / Fs; // At what intervals time points are sampled
-    float f = 4; // Frequency
+    float f = 10; // Frequency
 
     int chuck_size = FREQUENCY_RESOLUTION; // Chunk size (N / 64=64 chunks)
     Complex chuck[FREQUENCY_RESOLUTION];
     int j = 0;
     int counter = 0;
     float max_dBm = 0.0;
-    for (int i = 0; i < N+number_of_zeros; i++)
+    for (int i = 0; i < N + number_of_zeros; i++)
     {
-        in[i] = { (float)(0.7 * cos(2 * M_PI * f * (i * T))), (float)(0.7 * sin(2 * M_PI * f * (i * T))) };// generate (complex) sine waveform
+        in[i] = { time_samples[i],0 };// generate (complex) sine waveform
 
         if (i > N)
             in[i] = { {0},{0} };
-  
+
 
         in[i] = ApplyHanningWindow(in, i, FREQUENCY_RESOLUTION);
 
@@ -129,7 +151,7 @@ int main(int argc, char** argv)
         else
             j++;
     }
-   dBm = NormalizedBm(max_dBm, magnitude, dBm);
+    dBm = NormalizedBm(max_dBm, magnitude, dBm);
 
     QImage image = displaySpectrogram(dBm);
 
