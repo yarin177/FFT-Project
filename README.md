@@ -121,9 +121,11 @@ After building we can run the program by running:
 # Spectrogram Installation 
 
 The project uses **Qt framework**  library  to output a  spectrogram.
-Install it on **ubuntu** by running this line in the terminal:
+Install it on **ubuntu** by running this lines in the terminal:
 
 **`$ sudo apt-get install qt5-default`**
+
+**`sudo apt install libqt5charts5-dev`**
 
 <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Qt_logo_2016.svg/1200px-Qt_logo_2016.svg.png" alt="drawing" width="200"/>
 
