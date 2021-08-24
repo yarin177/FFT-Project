@@ -6,22 +6,28 @@
 #include <algorithm>
 #include <vector>
 #include <fstream>
-
+ 
 #include <QApplication>
 #include <QImage>
 #include <QLabel>
+ 
+#include <QChartView>
+#include <QLineSeries>
+#include <QMainWindow>
 
 using namespace std;
+QT_CHARTS_USE_NAMESPACE
+
 const int N = 2048; // Samples
 const int TIME_RESOLUTION = 32;
-const int FREQUENCY_RESOLUTION = 64;
-
+const int FREQUENCY_RESOLUTION = 32;
+ 
 vector<float> read_csv(std::string filename) {
     vector<float> data;
-
+ 
     // Create an input filestream
     std::ifstream myFile(filename);
-
+ 
     std::string line;
     while (std::getline(myFile, line))
     {
@@ -35,13 +41,20 @@ vector<float> read_csv(std::string filename) {
     }
     return data;
 }
-
+ 
+vector<float> arange(float start, float stop, float step) {
+    vector<float> values;
+    for (float value = start; value < stop; value += step)
+        values.push_back(value);
+    return values;
+}
+ 
 struct Color { // Represents a pixel color
     float R;
     float G;
     float B;
 };
-
+ 
 Color GetColorEntry(float x) { // Converts dBm entry to RGB color entry
     x = max(0.0f, 3 * x);
     Color pixel;
@@ -52,20 +65,20 @@ Color GetColorEntry(float x) { // Converts dBm entry to RGB color entry
     pixel = { R,G,B };
     return pixel;
 }
-
+ 
 Complex ApplyHanningWindow(vector<Complex>& in, int i, int chuck_size)
 {
     float multiplier = 0.7 * (1 - cos(2 * M_PI * i / (chuck_size)));//Hanning Window
     return in[i] * multiplier;
 }
-
+ 
 QImage displaySpectrogram(vector<vector<float>> dBm)
 {
     QImage image(QSize(FREQUENCY_RESOLUTION, TIME_RESOLUTION), QImage::Format_RGB32);
     QRgb value;
-
+ 
     Color colors;
-
+ 
     for (int i = 0; i < TIME_RESOLUTION; i++)
     {
         for (int j = 0; j < FREQUENCY_RESOLUTION; j++)
@@ -91,73 +104,62 @@ vector<vector<float>> NormalizedBm(float max_dBm, vector<float> magnitude, vecto
     }
     return dBm;
 }
+QChartView* plot_freq_magnitude_spectrum(vector<float> freq_vector, vector<float> mag_vector)
+{
+    QLineSeries *series = new QLineSeries();
+    for(int i = 0; i < N; i++)
+    {
+        series->append(freq_vector[i], mag_vector[i]);
+    }
+    QChart *chart = new QChart();
+    chart->legend()->hide();
+    chart->addSeries(series);
+    chart->createDefaultAxes();
+    chart->setTitle("Frequency-time spectrum");
 
+
+    QChartView *chartView = new QChartView(chart);
+    chartView->setRenderHint(QPainter::Antialiasing);
+    return chartView;
+}
+ 
 int main(int argc, char** argv)
 {
-    // GUI Stuff
-    QApplication app(argc, argv);
-
-    vector<vector<float>> dBm(TIME_RESOLUTION, std::vector<float>(FREQUENCY_RESOLUTION, 0));
+    QApplication a(argc, argv);
     vector<float> time_samples = read_csv("spec_samples.csv");
-    int to_complete = log2(N);
-    int number_of_zeros = 0;
-    if (pow(2, to_complete) < N)
-        number_of_zeros = pow(2, to_complete + 1) - N;
+    vector<float> magnitude(N);
+    Complex chunck[N];
 
-    vector<Complex> in(N + number_of_zeros); // Hold the samples (Complex sine wave)
-    vector<float> magnitude(N + number_of_zeros);
+    const float Fs = 44100; // How many time points are needed i,e., Sampling Frequency
 
-
-    const float Fs = 100; // How many time points are needed i,e., Sampling Frequency
-    const double  T = 1 / Fs; // At what intervals time points are sampled
-    float f = 10; // Frequency
-
-    int chuck_size = FREQUENCY_RESOLUTION; // Chunk size (N / 64=64 chunks)
-    Complex chuck[FREQUENCY_RESOLUTION];
-    int j = 0;
-    int counter = 0;
-    float max_dBm = 0.0;
-    for (int i = 0; i < N + number_of_zeros; i++)
+    for (int i = 0; i < N; i++)
     {
-        in[i] = { time_samples[i],0 };// generate (complex) sine waveform
-
-        if (i > N)
-            in[i] = { {0},{0} };
-
-
-        in[i] = ApplyHanningWindow(in, i, FREQUENCY_RESOLUTION);
-
-        chuck[j] = in[i]; // take every value and put it in chunk until 64
-
-        //compute FFT for each chunk
-        if (i + 1 == chuck_size) // for each set of 64 chunks (i.e. 64,TIME_RESOLUTION,192), apply FFT and save it all in a 1d array (magnitude)
+        if(i < 256 || i > 512)
         {
-            //f = f + 0.18;
-            chuck_size += FREQUENCY_RESOLUTION;
-            CArray data(chuck, FREQUENCY_RESOLUTION); // Apply fft for 64 chunk
-            fft(data);
-            j = 0;
-            for (int h = 0; h < FREQUENCY_RESOLUTION; h++)
-            {
-                magnitude[counter] = abs(data[h]); // save it all in 1d array (we switch it to 2d later on)
-
-                if (30 + (20 * log10(magnitude[counter])) > max_dBm) // already get the max dBm value to normalize later on
-                    max_dBm = 30 + (20 * log10(magnitude[counter]));
-
-                counter++;
-            }
-
+            chunck[i] = { 0,0 };
         }
         else
-            j++;
+        {
+            chunck[i] = { time_samples[i],0 };
+        }
+        
     }
-    dBm = NormalizedBm(max_dBm, magnitude, dBm);
+    CArray data(chunck, N); // Apply fft for 64 chunk
+    fft(data);
+    for (int i = 0; i < N; i++)
+    {
+        magnitude[i] = abs(data[i]);
+    }
 
-    QImage image = displaySpectrogram(dBm);
+    float resolution_freq = ((float)Fs / N);
+    vector<float> freq_vector = arange(0, Fs, resolution_freq);
+    QChartView *chartView = plot_freq_magnitude_spectrum(freq_vector,magnitude);
 
-    QLabel window;
-    window.setPixmap(QPixmap::fromImage(image));
+    QMainWindow window;
+    window.setCentralWidget(chartView);
+    window.resize(400, 300);
     window.show();
 
-    return app.exec();
+    return a.exec();
+
 }
