@@ -107,7 +107,7 @@ vector<vector<float>> NormalizedBm(float max_dBm, vector<float> magnitude, vecto
 QChartView* plot_freq_magnitude_spectrum(vector<float> freq_vector, vector<float> mag_vector)
 {
     QLineSeries *series = new QLineSeries();
-    for(int i = 0; i < N; i++)
+    for(int i = 0; i < N / 2; i++)
     {
         series->append(freq_vector[i], mag_vector[i]);
     }
@@ -130,34 +130,29 @@ int main(int argc, char** argv)
     vector<float> magnitude(N);
     Complex chunck[N];
 
-    const float Fs = 44100; // How many time points are needed i,e., Sampling Frequency
-
+    float Fs = 44100; // How many time points are needed i,e., Sampling Frequency
+    const double  T = 1 / Fs; // At what intervals time points are sampled
+    float f = 25; // Frequency
     for (int i = 0; i < N; i++)
     {
-        if(i < 256 || i > 512)
-        {
-            chunck[i] = { 0,0 };
-        }
-        else
-        {
-            chunck[i] = { time_samples[i],0 };
-        }
-        
+        chunck[i] = { time_samples[i], 0 };// generate (complex) sine waveform
     }
     CArray data(chunck, N); // Apply fft for 64 chunk
     fft(data);
-    for (int i = 0; i < N; i++)
+    int temp = N/2;
+    int temp2 = Fs / 2;
+    for (int i = 0; i < temp; i++)
     {
         magnitude[i] = abs(data[i]);
     }
+    float resolution_freq = ((float)temp2 / temp);
+    vector<float> freq_vector = arange(0, temp2, resolution_freq);
 
-    float resolution_freq = ((float)Fs / N);
-    vector<float> freq_vector = arange(0, Fs, resolution_freq);
     QChartView *chartView = plot_freq_magnitude_spectrum(freq_vector,magnitude);
 
     QMainWindow window;
     window.setCentralWidget(chartView);
-    window.resize(400, 300);
+    window.resize(1800, 1000);
     window.show();
 
     return a.exec();
