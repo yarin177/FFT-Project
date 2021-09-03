@@ -18,7 +18,7 @@
 using namespace std;
 QT_CHARTS_USE_NAMESPACE
 
-const int N = 2048; // Samples
+const int N = 256; // Samples
 const int TIME_RESOLUTION = 32;
 const int FREQUENCY_RESOLUTION = 32;
  
@@ -41,7 +41,18 @@ vector<float> read_csv(std::string filename) {
     }
     return data;
 }
- 
+
+void frequencyMixer(Complex *data, int frequency)
+{
+    Complex chunk[N];
+    const float Fs = 176400; // How many time points are needed i,e., Sampling Frequency
+    const double  T = 1 / Fs; // At what intervals time points are sampled
+    for(int i = 0; i < N; i++)
+    {
+        chunk[i] = {(float)(1 * cos(2 * M_PI * frequency * (i * T))),(float)(1 * sin(2 * M_PI * frequency * (i * T)))};
+        data[i] = data[i] * chunk[i];
+    }
+} 
 vector<float> arange(float start, float stop, float step) {
     vector<float> values;
     for (float value = start; value < stop; value += step)
@@ -126,24 +137,27 @@ QChartView* plot_freq_magnitude_spectrum(vector<float> freq_vector, vector<float
 int main(int argc, char** argv)
 {
     QApplication a(argc, argv);
-    vector<float> time_samples = read_csv("spec_samples.csv");
-    vector<float> magnitude(N);
-    Complex chunck[N];
-
-    float Fs = 44100; // How many time points are needed i,e., Sampling Frequency
+    vector<float> time_samples = read_csv("complex_signal.csv");
+    vector<float> magnitude;
+    vector<CArray> test;
+    //Complex chunk = *frequencyMixer(time_samples,10000);
+    Complex chunk[N];
+    float Fs = 176400; // How many time points are needed i,e., Sampling Frequency
     const double  T = 1 / Fs; // At what intervals time points are sampled
-    float f = 25; // Frequency
     for (int i = 0; i < N; i++)
     {
-        chunck[i] = { time_samples[i], 0 };// generate (complex) sine waveform
+        //value2 = (float)(1 * cos(2 * M_PI * 75000 * (i * T)));
+        double multiplier = 0.5 * (1 - cos(2*M_PI*i/256)); // Hamming Window
+        chunk[i] = {time_samples[i] * multiplier, time_samples[i+N] * multiplier};// generate (complex) sine waveform
     }
-    CArray data(chunck, N); // Apply fft for 64 chunk
+    frequencyMixer(chunk,-9062);
+    CArray data(chunk, N); // Apply fft for 64 chunk
     fft(data);
     int temp = N/2;
     int temp2 = Fs / 2;
     for (int i = 0; i < temp; i++)
     {
-        magnitude[i] = abs(data[i]);
+        magnitude.push_back(abs(data[i]));
     }
     float resolution_freq = ((float)temp2 / temp);
     vector<float> freq_vector = arange(0, temp2, resolution_freq);
