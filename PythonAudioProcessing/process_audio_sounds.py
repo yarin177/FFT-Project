@@ -78,18 +78,7 @@ def low_cut_filter(x, fs, cutoff=70):
 
 def generateSignalFM(slc,t, fc=None, b=.3):
     slc /= (2*np.abs(slc).max())
-
-    fs_audio = 44100
-    fs = 176400
-    samples = []
-    time_vec = np.arange(0,10,1/fs)
-    audio_chunks = list(chunks(slc,fs_audio))
-    for i,single_chunk in enumerate(audio_chunks):
-        for j in range(44100):
-            samples.append(single_chunk[j])
-            samples.append(0)
-            samples.append(0)
-            samples.append(0)
+    samples,time_vec = SamplerateConversion(slc)
 
     #freq_vec = np.arange(0,fs_audio/2,fs_audio/(fs_audio*10))
     #freq_vec2 = np.arange(0,fs/2,fs/(fs*10))
@@ -97,7 +86,7 @@ def generateSignalFM(slc,t, fc=None, b=.3):
     #flat_list = [item for sublist in samples for item in sublist]
     #flat_list = np.array(flat_list)
 
-    w = low_cut_filter(samples,fs,22050)
+    w = low_cut_filter(samples,176400,22050)
 
     '''
     fft_out = fft(slc)
@@ -133,7 +122,7 @@ def generateSignalFM(slc,t, fc=None, b=.3):
         phi = phi0 + phi1
 
     # modulate
-    x = np.cos(phi)
+    x = np.exp(1j * phi)
     return x
 
 
@@ -158,7 +147,29 @@ def readAudioFile(file_name, sample_for,start_time=0):
     time = np.arange(0,sample_for,1/sample_rate) #time vector
     return time,split_data, sample_rate
 
-def writeCSV(file_name, data,path):
+def ComplexToList(type):
+    """Function to split complex array into a list of <type>
+
+    Args:
+        complex_arr (ndarray): The complex arr, should contain complex sampels
+        type (string): The type part that should be returned. real\imag
+
+    Return:
+        (list): 1D list of the desired type
+    """
+    lst = []
+    tmp = []
+    for i in range(int(len(type) / 256)):
+        for j in range(256):
+            tmp.append(type[j].real)
+        for j in range(256):
+            tmp.append(type[j].imag)
+        lst.append(tmp)
+        tmp = []
+
+    return lst
+
+def writeCSV(file_name, data,path): 
     len_training = int(len(data) * 0.9)
     len_testing = int(len(data) * 0.1)
 
@@ -217,30 +228,15 @@ def main():
     data = normalizeAudio(data)
     printInfo(SAMPLE_FOR)
 
-    #fm = generateSignalFM(data,time)
+    fm = generateSignalFM(data,time)
     am = generateSignalAM(data,time)
+
+    lst_fm = ComplexToList(fm)
+    lst_am = ComplexToList(am)
+
     
-    spec_data = []
-    for i in range(256):
-        spec_data.append(am[i].real)
-
-    for i in range(256):
-        spec_data.append(am[i].imag)
-
-    #random.shuffle(spec_data)
-    print(len(spec_data))
-    f = open('complex_signal.csv', 'w', newline='')
-    writer = csv.writer(f)
-    writer.writerows([spec_data])
-    f.close()
-    
-
-    #writingDataFM = list(chunks(fm,256))
-    #writingDataAM = list(chunks(am,256))
-    #print(fm[0])
-    #generate_to_spec(2,writingDataAM,writingDataFM)
-    #writeCSV('FM',writingDataFM,path)
-    #writeCSV('AM',writingDataAM,path)
+    writeCSV('FM',lst_fm,path)
+    writeCSV('AM',lst_am,path)
     
 if __name__ == "__main__":
     main()
