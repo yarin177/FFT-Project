@@ -4,20 +4,21 @@
 
 const int FM = 0;
 const int AM = 1;
-const int TRAINING_AMOUNT = 4650;
-const int TESTING_AMOUNT = 516;
+const int TRAINING_AMOUNT = 6201;
+const int TESTING_AMOUNT = 689;
+const int INPUTS = 512;
 const float OUTPUTS = 2.0;
 
 int main()
 {
-	readLocalFiles("trainingFM4650.csv", "trainingAM4650.csv", "testingFM516.csv", "testingAM516.csv");
+	readLocalFiles("trainingFM6201.csv", "trainingAM6201.csv", "testingFM689.csv", "testingAM689.csv");
 	arrangeFiles(TRAINING_AMOUNT, TESTING_AMOUNT);
 	SortedFiles shuffled_files = getshuffledVectors();
 
 	vector<TrainingHandler> trainingData = shuffled_files.trainingData;
 	vector<TrainingHandler> testingData = shuffled_files.testingData;
 
-	NeuralNetwork nn(256, 48, 2); // init a new Neural Network with 256 inputs, 48 hidden nodes and 3 outputs
+	NeuralNetwork nn(INPUTS, 48, 2); // init a new Neural Network with 512 inputs, 48 hidden nodes and 2 outputs
 
 	std::cout << "Starting to train the Neural Network" << std::endl;
 	for (int i = 0; i < TRAINING_AMOUNT * OUTPUTS; i++)
