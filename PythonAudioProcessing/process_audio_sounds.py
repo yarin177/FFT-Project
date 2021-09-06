@@ -159,11 +159,11 @@ def ComplexToList(type):
     """
     lst = []
     tmp = []
-    for i in range(int(len(type) / 256)):
+    for i in range(0,1756160,256):
         for j in range(256):
-            tmp.append(type[j].real)
+            tmp.append(type[j+i].real)
         for j in range(256):
-            tmp.append(type[j].imag)
+            tmp.append(type[j+i].imag)
         lst.append(tmp)
         tmp = []
 
@@ -189,16 +189,17 @@ def writeCSV(file_name, data,path):
     print("Saved testing file to '" + path + testing_file_name + "'")
 
 #This function outputs a csv file with N/2 AM signal and N/2 FM signal randomized.
-def generate_to_spec(N,writingDataAM,writingDataFM):
+def generate_to_spec(N,writingDataFM,writingDataAM):
     spec_data = []
     length = int(N / 2)
     for i in range(length):
         spec_data.append(writingDataFM[i])
+
+    for i in range(length):
         spec_data.append(writingDataAM[i])
-        
+
     #random.shuffle(spec_data)
-    print(len(writingDataAM[0]))
-    f = open('final2_samples.csv', 'w', newline='')
+    f = open('complex_samples_fm_am.csv', 'w', newline='')
     writer = csv.writer(f)
     writer.writerows(spec_data)
     f.close()
@@ -233,8 +234,17 @@ def main():
 
     lst_fm = ComplexToList(fm)
     lst_am = ComplexToList(am)
+    '''
+    lst2 = []
+    lst2.append(lst_fm[0])
+    f = open('complex_samples_fm2.csv', 'w', newline='')
+    writer = csv.writer(f)
+    writer.writerows(lst2)
+    f.close()
 
-    
+    '''
+
+    #generate_to_spec(4,lst_fm,lst_am)
     writeCSV('FM',lst_fm,path)
     writeCSV('AM',lst_am,path)
     
