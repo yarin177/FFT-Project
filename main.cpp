@@ -21,30 +21,44 @@ QT_CHARTS_USE_NAMESPACE
 const int N = 256; // Samples
 const int TIME_RESOLUTION = 32;
 const int FREQUENCY_RESOLUTION = 32;
- 
-vector<float> read_csv(std::string filename) {
+
+typedef vector<complex<float>> complexSignal;
+vector<complexSignal> read_csv(std::string filename) {
     vector<float> data;
- 
+    vector<complexSignal> comp;
     // Create an input filestream
     std::ifstream myFile(filename);
- 
     std::string line;
+    int counter = 0; // used to keep track of real & imag parts
     while (std::getline(myFile, line))
     {
         std::istringstream s(line);
         std::string field;
         vector<float> lineData;
-        while (getline(s, field, ',')) {
-            data.push_back(std::stof(field));
+        complexSignal temp;
+        int i = 0;
+        while (std::getline(s, field, ',')) {
+            //data.push_back(std::stof(field));
+            float multiplier = 0.5 * (1 - cos(2*M_PI*i/256)); // Hamming Window
+            float value = std::stof(field);
+            if (counter < 256)
+                temp.push_back({ value * multiplier , 0 });
+            else
+                temp[counter - 256].imag(value * multiplier);
+            counter++;
+            i++;
         }
-        lineData.clear();
+        comp.push_back(temp);
+        counter = 0;
+        i = 0;
+        temp.clear();
     }
-    return data;
+    return comp;
 }
 
-void frequencyMixer(Complex *data, int frequency)
+void frequencyMixer(complexSignal& data, int frequency)
 {
-    Complex chunk[N];
+    complexSignal chunk(N);
     const float Fs = 176400; // How many time points are needed i,e., Sampling Frequency
     const double  T = 1 / Fs; // At what intervals time points are sampled
     for(int i = 0; i < N; i++)
@@ -75,12 +89,6 @@ Color GetColorEntry(float x) { // Converts dBm entry to RGB color entry
     float B = min(1.0f, max(x - 2, 0.0f)) * 255;
     pixel = { R,G,B };
     return pixel;
-}
- 
-Complex ApplyHanningWindow(vector<Complex>& in, int i, int chuck_size)
-{
-    float multiplier = 0.7 * (1 - cos(2 * M_PI * i / (chuck_size)));//Hanning Window
-    return in[i] * multiplier;
 }
  
 QImage displaySpectrogram(vector<vector<float>> dBm)
@@ -118,7 +126,7 @@ vector<vector<float>> NormalizedBm(float max_dBm, vector<float> magnitude, vecto
 QChartView* plot_freq_magnitude_spectrum(vector<float> freq_vector, vector<float> mag_vector)
 {
     QLineSeries *series = new QLineSeries();
-    for(int i = 0; i < N / 2; i++)
+    for(int i = 0; i < N; i++)
     {
         series->append(freq_vector[i], mag_vector[i]);
     }
@@ -137,27 +145,25 @@ QChartView* plot_freq_magnitude_spectrum(vector<float> freq_vector, vector<float
 int main(int argc, char** argv)
 {
     QApplication a(argc, argv);
-    vector<float> time_samples = read_csv("complex_signal.csv");
+    vector<complexSignal> time_samples = read_csv("complex_samples_fm_am.csv");
     vector<float> magnitude;
-    vector<CArray> test;
     //Complex chunk = *frequencyMixer(time_samples,10000);
-    Complex chunk[N];
     float Fs = 176400; // How many time points are needed i,e., Sampling Frequency
-    const double  T = 1 / Fs; // At what intervals time points are sampled
     for (int i = 0; i < N; i++)
     {
         //value2 = (float)(1 * cos(2 * M_PI * 75000 * (i * T)));
-        double multiplier = 0.5 * (1 - cos(2*M_PI*i/256)); // Hamming Window
-        chunk[i] = {time_samples[i] * multiplier, time_samples[i+N] * multiplier};// generate (complex) sine waveform
+        //float multiplier = 0.5 * (1 - cos(2*M_PI*i/256)); // Hamming Window
+        //test = {time_samples[0][i] * multiplier, time_samples[0][i+N] * multiplier};// generate (complex) sine waveform
+        //chunk2.push_back(chunk[i]);
     }
-    frequencyMixer(chunk,-9062);
-    CArray data(chunk, N); // Apply fft for 64 chunk
-    fft(data);
-    int temp = N/2;
-    int temp2 = Fs / 2;
+    //frequencyMixer(time_samples[0],56783);
+    //CArray data(chunk, N); // Apply fft for 64 chunk
+    fft(time_samples[0]);
+    int temp = N;
+    int temp2 = Fs;
     for (int i = 0; i < temp; i++)
     {
-        magnitude.push_back(abs(data[i]));
+        magnitude.push_back(abs(time_samples[0][i]));
     }
     float resolution_freq = ((float)temp2 / temp);
     vector<float> freq_vector = arange(0, temp2, resolution_freq);
