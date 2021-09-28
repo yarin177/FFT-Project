@@ -1,59 +1,106 @@
-from numpy.lib.function_base import append
-import scipy.io.wavfile
-import matplotlib.pyplot as plt
+import scipy
 import numpy as np
-import csv
-import random
+import matplotlib.pyplot as plt
+import scipy.io.wavfile
 from scipy.fftpack import fft
 import scipy.signal as sig
+import csv
+
+def normalizeAudio(data):
+    return np.float32((data / max(data)))
 
 def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
-def plot_graph(t,data):
-    plt.plot(t,data)
-    plt.xlabel("Time(s)")
-    plt.ylabel("Amplitude")
-    plt.show()
+def compute_hcf(x, y):
+# choose the smaller number
+    if x > y:
+        smaller = y
+    else:
+        smaller = x
+    for i in range(1, smaller+1):
+        if((x % i == 0) and (y % i == 0)):
+            hcf = i 
+    return hcf
 
-def plot_graph2d(t1,data1,t2,data2):
+def generateSignalFM(slc, time_vec):
+    b = 0.3
+    slc /= (2*np.abs(slc).max())
+    N = len(slc)
+    fc = 0
 
-    plt.plot(t2,data2)
-    plt.xlabel("Time(s)")
-    plt.ylabel("Amplitude")
-    plt.plot(t1,data1)
-    plt.legend(['FM Signal', 'Original Signal'], loc='lower right')
-    plt.show()
+    x0 = slc[:N]
+    # ensure it's [-.5, .5] so diff(phi) is b*[-pi, pi]
+    x0 /= (2*np.abs(x0).max())
 
-def SamplerateConversion(slc):
-    fs_audio = 44100
-    fs = 176400
-    samples = []
-    time_vec = np.arange(0,10,1/fs)
-    audio_chunks = list(chunks(slc,fs_audio))
-    for i,single_chunk in enumerate(audio_chunks):
-        for j in range(44100):
-            samples.append(single_chunk[j])
-            samples.append(0)
-            samples.append(0)
-            samples.append(0)
-    return samples, time_vec
+    # generate phase
+    phi0 = 2*np.pi * fc * time_vec
+    phi1 = 2*np.pi * b * np.cumsum(x0)
+    phi = phi0 + phi1
+    diffmax  = np.abs(np.diff(phi)).max()
+    # `b` correction
+    if diffmax >= np.pi:
+        diffmax0 = np.abs(np.diff(phi0)).max()
+        diffmax1 = np.abs(np.diff(phi1)).max()
+        phi1 *= ((np.pi - diffmax0) / diffmax1)
+        phi = phi0 + phi1
 
-def generateSignalAM(slc,t):
-    samples,time_vec = SamplerateConversion(slc)
-    w = low_cut_filter(samples,176400,22050)
+    # modulate
+    x = np.exp(1j * phi)
+    return x
 
-    TWO_PI = 2 * np.pi
-    carrier_hz = 20000
-    ac = 0.5
+def generateSignalAM(samples):
+    Z = np.zeros(len(samples), dtype=complex)
 
-    carrier = np.exp(1j * TWO_PI * carrier_hz * time_vec)
-    envelope = (1.0 + ac * w)
-    modulated = envelope * carrier
+    for i in range(len(samples)):
+        value = samples[i] + 1
+        Z[i] = value + 0j 
+    return Z
 
-    return modulated
+def SamplerateConversion(samples, new_fs, old_fs):
+    L = int(new_fs / 100)
+    M = int(old_fs / 100)
+
+    hcf = compute_hcf(L,M)
+    L = int(L / hcf)
+    M = int(M / hcf)
+
+    if L > 1 and M == 1:
+        inter = interpolation(samples,L,old_fs)
+        w = low_cut_filter(inter,new_fs,22050)
+        return w
+    elif L == 1 and M > 1:
+        dec = decimation(samples,M,old_fs)
+        return dec
+    elif L > 1 and M > 1:
+        inter = interpolation(samples,L,old_fs)
+        filtered_inter = low_cut_filter(inter,old_fs * L,22050)
+        dec = decimation(filtered_inter,M,old_fs)
+        return dec
+
+def interpolation(samples,num, old_fs):
+    inter_samples = []
+
+    chunks_samp = list(chunks(samples,old_fs))
+    for chunk in chunks_samp:
+        for j in chunk:
+            inter_samples.append(j)
+            for h in range(num-1):
+                inter_samples.append(0)
+    return inter_samples
+
+def decimation(samples,num, old_fs):
+    inter_samples = []
+    i = num - 1
+    for j in samples:
+        if i == num-1:
+            inter_samples.append(j)
+            i = 0
+        else:
+            i += 1
+    return inter_samples
 
 def low_cut_filter(x, fs, cutoff=70):
     """FUNCTION TO APPLY LOW CUT FILTER
@@ -76,78 +123,7 @@ def low_cut_filter(x, fs, cutoff=70):
 
     return lcf_x 
 
-def generateSignalFM(slc,t, fc=None, b=.3):
-    slc /= (2*np.abs(slc).max())
-    samples,time_vec = SamplerateConversion(slc)
-
-    #freq_vec = np.arange(0,fs_audio/2,fs_audio/(fs_audio*10))
-    #freq_vec2 = np.arange(0,fs/2,fs/(fs*10))
-
-    #flat_list = [item for sublist in samples for item in sublist]
-    #flat_list = np.array(flat_list)
-
-    w = low_cut_filter(samples,176400,22050)
-
-    '''
-    fft_out = fft(slc)
-    B = fft_out[:len(fft_out)//2]
-
-    fft_out2 = fft(w)
-    D = fft_out2[:len(fft_out2)//2]
-
-    fig, axes = plt.subplots(nrows=2, ncols=1)
-    axes[0].plot(t, slc)
-    axes[1].plot(time_vec, w)
-    fig.tight_layout()
-    plt.show()
-    '''
-    N = len(w)
-    if fc is None:
-        fc = 75000 # arbitrary
-
-    x0 = w[:N]
-    # ensure it's [-.5, .5] so diff(phi) is b*[-pi, pi]
-    x0 /= (2*np.abs(x0).max())
-
-    # generate phase
-    phi0 = 2*np.pi * fc * time_vec
-    phi1 = 2*np.pi * b * np.cumsum(x0)
-    phi = phi0 + phi1
-    diffmax  = np.abs(np.diff(phi)).max()
-    # `b` correction
-    if diffmax >= np.pi:
-        diffmax0 = np.abs(np.diff(phi0)).max()
-        diffmax1 = np.abs(np.diff(phi1)).max()
-        phi1 *= ((np.pi - diffmax0) / diffmax1)
-        phi = phi0 + phi1
-
-    # modulate
-    x = np.exp(1j * phi)
-    return x
-
-
-def getWritingData(audio_length,sample_rate,data):
-    chunks_data = list(chunks(data,200000))
-    for i in range(len(chunks_data)):
-        chunks_data[i] = chunks_data[i][:len(chunks_data[i])-155968]
-
-    flat_list = [item for sublist in chunks_data for item in sublist]
-    lst = list(chunks(flat_list,256))
-    return lst
-
-def writeAudio(file_name, sample_rate, data):
-    modulator_ints = np.int16(data * 32767) # increase volume
-    scipy.io.wavfile.write(file_name + '.wav', sample_rate, modulator_ints)
-
-def readAudioFile(file_name, sample_for,start_time=0):
-    sample_rate, data = scipy.io.wavfile.read(file_name)
-    start_time = int(start_time * sample_rate)
-    end_time = int(start_time + (sample_rate * sample_for)) # sample for 1 second
-    split_data = normalizeAudio(data[start_time:end_time])
-    time = np.arange(0,sample_for,1/sample_rate) #time vector
-    return time,split_data, sample_rate
-
-def ComplexToList(type):
+def ComplexToList(type, Fs):
     """Function to split complex array into a list of <type>
 
     Args:
@@ -157,9 +133,11 @@ def ComplexToList(type):
     Return:
         (list): 1D list of the desired type
     """
+
+    max_val = int(Fs / 256) * 256
     lst = []
     tmp = []
-    for i in range(0,1756160,256):
+    for i in range(0,max_val,256):
         for j in range(256):
             tmp.append(type[j+i].real)
         for j in range(256):
@@ -188,65 +166,52 @@ def writeCSV(file_name, data,path):
     print("Saved training file to '" +  path + training_file_name + "'")
     print("Saved testing file to '" + path + testing_file_name + "'")
 
-#This function outputs a csv file with N/2 AM signal and N/2 FM signal randomized.
-def generate_to_spec(N,writingDataFM,writingDataAM):
-    spec_data = []
-    length = int(N / 2)
-    for i in range(length):
-        spec_data.append(writingDataFM[i])
-
-    for i in range(length):
-        spec_data.append(writingDataAM[i])
-
-    #random.shuffle(spec_data)
-    f = open('complex_samples_fm_am.csv', 'w', newline='')
-    writer = csv.writer(f)
-    writer.writerows(spec_data)
-    f.close()
-
-def normalizeAudio(data):
-    return np.float32((data / max(data)))
-
-def printInfo(SAMPLE_FOR):
-    length = SAMPLE_FOR * 176400
-    total =  int(length / 256)
-    len_training = str(int(total * 0.9))
-    len_testing = str(int(total * 0.1))
-    total = int(len_training) + int(len_testing)
-    print('Dividing ' + str(length) + ' samples to chunks of 256 (' + str(total) + ' chunks total)')
-    print(len_training + ' chunks will be used for training')
-    print(len_testing + ' chunks will be used for testing\n')
-
 def main():
     path = '../NeuralNetwork/TrainingTestingFiles/'
-    print('Saving files to: ' + path)
 
-    SAMPLE_FOR = 10 # in seconds
+    SAMPLE_FOR = 1 # in seconds
     samplerate, data = scipy.io.wavfile.read(r'Recording.wav')
-    print('Sampling for ' + str(SAMPLE_FOR) + ' seconds with sample rate of ' + str(samplerate))
-    data = data[0:int(samplerate*SAMPLE_FOR)]
     time = np.arange(0,SAMPLE_FOR,1/samplerate) #time vector
-    data = normalizeAudio(data)
-    printInfo(SAMPLE_FOR)
+    data = normalizeAudio(data[0:int(samplerate*SAMPLE_FOR)])
 
-    fm = generateSignalFM(data,time)
-    am = generateSignalAM(data,time)
+    time_vec = np.arange(0, 1, 1 / 1260000)
 
-    lst_fm = ComplexToList(fm)
-    lst_am = ComplexToList(am)
+
+    #Set the Bandwidth to 12.6KHz
+    BW = 6300
+    w = low_cut_filter(data,samplerate,BW)
+
+    #Set new Sampeling rate to 1.26MHz
+    f = sig.resample(w, 1260000)
+
+    #f = SamplerateConversion(data,1260000,44100)
+
+    #AM Modulation (Zero-IF)
+    samples_am = generateSignalAM(f)
+
+    #FM Modulation (Zero-IF)
+    samples_fm = generateSignalFM(f,time_vec)
+
+    #Convert samples to NN list
+    am = ComplexToList(samples_am,1260000)
+    fm = ComplexToList(samples_fm,1260000)
+
+    #Save to files
+    writeCSV('FM',fm,path)
+    writeCSV('AM',am,path)
+
     '''
-    lst2 = []
-    lst2.append(lst_fm[0])
-    f = open('complex_samples_fm2.csv', 'w', newline='')
+    lst = [am[0],fm[0]]
+    f = open('test.csv', 'w', newline='')
     writer = csv.writer(f)
-    writer.writerows(lst2)
+    writer.writerows(lst)
     f.close()
-
     '''
 
-    #generate_to_spec(4,lst_fm,lst_am)
-    writeCSV('FM',lst_fm,path)
-    writeCSV('AM',lst_am,path)
-    
-if __name__ == "__main__":
-    main()
+    '''
+    fft_out = fft(samples_am[0:256])
+    freq_vector = np.arange(0, 1260000, 1260000 / 256)
+    plt.plot(freq_vector, np.abs(fft_out))
+    plt.show()
+    '''
+main()
