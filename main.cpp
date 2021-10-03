@@ -18,7 +18,7 @@
 using namespace std;
 QT_CHARTS_USE_NAMESPACE
 
-const int N = 256; // Samples
+const int N = 25200; // Samples
 const int TIME_RESOLUTION = 32;
 const int FREQUENCY_RESOLUTION = 32;
 
@@ -36,30 +36,26 @@ vector<complexSignal> read_csv(std::string filename) {
         std::string field;
         vector<float> lineData;
         complexSignal temp;
-        int i = 0;
+
         while (std::getline(s, field, ',')) {
             //data.push_back(std::stof(field));
-            float multiplier = 0.5 * (1 - cos(2*M_PI*i/256)); // Hamming Window
             float value = std::stof(field);
-            if (counter < 256)
-                temp.push_back({ value * multiplier , 0 });
+            if (counter < 25600)
+                temp.push_back({ value , 0 });
             else
-                temp[counter - 256].imag(value * multiplier);
+                temp[counter - 25600].imag(value);
             counter++;
-            i++;
         }
         comp.push_back(temp);
         counter = 0;
-        i = 0;
         temp.clear();
     }
     return comp;
 }
 
-void frequencyMixer(complexSignal& data, int frequency)
+void frequencyMixer(complexSignal& data, const int frequency, const float Fs)
 {
     complexSignal chunk(N);
-    const float Fs = 176400; // How many time points are needed i,e., Sampling Frequency
     const double  T = 1 / Fs; // At what intervals time points are sampled
     for(int i = 0; i < N; i++)
     {
@@ -145,25 +141,64 @@ QChartView* plot_freq_magnitude_spectrum(vector<float> freq_vector, vector<float
 int main(int argc, char** argv)
 {
     QApplication a(argc, argv);
-    vector<complexSignal> time_samples = read_csv("complex_samples_fm_am.csv");
+    vector<complexSignal> time_samples = read_csv("test.csv");
     vector<float> magnitude;
-    //Complex chunk = *frequencyMixer(time_samples,10000);
-    float Fs = 176400; // How many time points are needed i,e., Sampling Frequency
-    for (int i = 0; i < N; i++)
+    complexSignal combined_samples;
+    float Fs = 1260000; // How many time points are needed i,e., Sampling Frequency
+    int BW = 12600;
+    complexSignal final_samples;
+
+    //Apply Hamming Window
+    for(int i = 0; i < time_samples.size(); i++)
     {
-        //value2 = (float)(1 * cos(2 * M_PI * 75000 * (i * T)));
-        //float multiplier = 0.5 * (1 - cos(2*M_PI*i/256)); // Hamming Window
-        //test = {time_samples[0][i] * multiplier, time_samples[0][i+N] * multiplier};// generate (complex) sine waveform
-        //chunk2.push_back(chunk[i]);
+        for(int j = 0; j < 25200; j++)
+        {
+            float multiplier = 0.5 * (1 - cos(2*M_PI*j/25200)); 
+            time_samples[i][j] *= multiplier;
+        }
     }
-    //frequencyMixer(time_samples[0],56783);
+
+    //move each signal to a different frequency
+    for(int i = 0; i < time_samples.size(); i++)
+    {
+        frequencyMixer(time_samples[i],BW,Fs);
+        BW += 12600;
+    }
+    
+    //Combine them
+    for(int j = 0; j < 25200; j++)
+    {
+        complex<float> value = time_samples[1][j] + time_samples[0][j];
+        final_samples.push_back(value);
+    }
+    //frequencyMixer(time_samples[1],6300,Fs);
+
+    /*
+    for(int j = 0; j < 25200; j++)
+    {
+        std::complex<float> real_val = time_samples[0][j] + time_samples[1][j];
+        combined_samples.push_back(real_val);
+    }
+
+    for(int i = 0; i < 128; i++)
+    {
+        if(i < 100)
+            final_samples.push_back(combined_samples[i]);
+        else
+            final_samples.push_back({0,0});
+    }
+    */
+
+
+    //frequencyMixer(time_samples[1],941000, Fs);
     //CArray data(chunk, N); // Apply fft for 64 chunk
-    fft(time_samples[0]);
-    int temp = N;
+    fft(final_samples);
+
+    int temp = 25200;
     int temp2 = Fs;
     for (int i = 0; i < temp; i++)
     {
-        magnitude.push_back(abs(time_samples[0][i]));
+        magnitude.push_back(abs(final_samples[i]));
     }
     float resolution_freq = ((float)temp2 / temp);
     vector<float> freq_vector = arange(0, temp2, resolution_freq);
