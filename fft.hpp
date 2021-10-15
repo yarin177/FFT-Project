@@ -58,6 +58,11 @@ void fft(vector<complex<float>>& x)
         vector<complex<float>> p0 = slicing(x, 0, N / 3, 2);
         vector<complex<float>> p1 = slicing(x, 1, N / 3, 2);
         vector<complex<float>> p2 = slicing(x, 2, N / 3, 2);
+
+        fft(p0);
+        fft(p1);
+        fft(p2);
+
         for (int i = 0; i < N; i++)
         {
             complex<float> temp = p0[i % (int)N / 3];
@@ -75,6 +80,12 @@ void fft(vector<complex<float>>& x)
         vector<complex<float>> p2 = slicing(x, 2, N / 5, 2);
         vector<complex<float>> p3 = slicing(x, 3, N / 5, 2);
         vector<complex<float>> p4 = slicing(x, 4, N / 5, 2);
+
+        fft(p0);
+        fft(p1);
+        fft(p2);
+        fft(p3);
+        fft(p4);
         for (int i = 0; i < N; i++)
         {
             complex<float> temp = p0[i % (int)N / 5];
