@@ -18,7 +18,7 @@
 using namespace std;
 QT_CHARTS_USE_NAMESPACE
 
-const int N = 25200; // Samples
+const int N = 12600; // Samples
 const int TIME_RESOLUTION = 32;
 const int FREQUENCY_RESOLUTION = 32;
 
@@ -30,6 +30,7 @@ vector<complexSignal> read_csv(std::string filename) {
     std::ifstream myFile(filename);
     std::string line;
     int counter = 0; // used to keep track of real & imag parts
+    int split_size = 1260000; // 1,260,000 is 1 seconds of sample data
     while (std::getline(myFile, line))
     {
         std::istringstream s(line);
@@ -40,10 +41,10 @@ vector<complexSignal> read_csv(std::string filename) {
         while (std::getline(s, field, ',')) {
             //data.push_back(std::stof(field));
             float value = std::stof(field);
-            if (counter < 25600)
+            if (counter < split_size)
                 temp.push_back({ value , 0 });
             else
-                temp[counter - 25600].imag(value);
+                temp[counter - split_size].imag(value);
             counter++;
         }
         comp.push_back(temp);
@@ -55,9 +56,9 @@ vector<complexSignal> read_csv(std::string filename) {
 
 void frequencyMixer(complexSignal& data, const int frequency, const float Fs)
 {
-    complexSignal chunk(N);
+    complexSignal chunk(data.size());
     const double  T = 1 / Fs; // At what intervals time points are sampled
-    for(int i = 0; i < N; i++)
+    for(int i = 0; i < chunk.size(); i++)
     {
         chunk[i] = {(float)(1 * cos(2 * M_PI * frequency * (i * T))),(float)(1 * sin(2 * M_PI * frequency * (i * T)))};
         data[i] = data[i] * chunk[i];
@@ -122,7 +123,7 @@ vector<vector<float>> NormalizedBm(float max_dBm, vector<float> magnitude, vecto
 QChartView* plot_freq_magnitude_spectrum(vector<float> freq_vector, vector<float> mag_vector)
 {
     QLineSeries *series = new QLineSeries();
-    for(int i = 0; i < N; i++)
+    for(int i = 0; i < 100; i++)
     {
         series->append(freq_vector[i], mag_vector[i]);
     }
@@ -137,6 +138,14 @@ QChartView* plot_freq_magnitude_spectrum(vector<float> freq_vector, vector<float
     chartView->setRenderHint(QPainter::Antialiasing);
     return chartView;
 }
+complexSignal decimated_array(int M,complexSignal arr)
+{
+    complexSignal decimated;
+    for (size_t i = 0; i < arr.size(); i = i + M) {
+        decimated.push_back(arr[i]);
+    }
+    return decimated;
+}
  
 int main(int argc, char** argv)
 {
@@ -145,32 +154,28 @@ int main(int argc, char** argv)
     vector<float> magnitude;
     complexSignal combined_samples;
     float Fs = 1260000; // How many time points are needed i,e., Sampling Frequency
-    int BW = 12600;
+    int BW = 310000;
+    int spectrogram_rate = 60;
     complexSignal final_samples;
-
-    //Apply Hamming Window
+    //Apply Hamming Window (NEED TO FIX THIS!!!)
+    
     for(int i = 0; i < time_samples.size(); i++)
     {
-        for(int j = 0; j < 25200; j++)
+        for(int j = 0; j < 12600; j++)
         {
-            float multiplier = 0.5 * (1 - cos(2*M_PI*j/25200)); 
+            float multiplier = 0.5 * (1 - cos(2*M_PI*j/12600)); // Hann window
             time_samples[i][j] *= multiplier;
         }
     }
 
-    //move each signal to a different frequency
-    for(int i = 0; i < time_samples.size(); i++)
-    {
-        frequencyMixer(time_samples[i],BW,Fs);
-        BW += 12600;
-    }
-    
     //Combine them
-    for(int j = 0; j < 25200; j++)
+    for(int j = 0; j < 12600; j++)
     {
-        complex<float> value = time_samples[1][j] + time_samples[0][j];
+        complex<float> value = time_samples[0][j];
         final_samples.push_back(value);
     }
+    complexSignal final_decimated_samples = decimated_array(126,final_samples);
+    frequencyMixer(final_decimated_samples,BW,Fs);
     //frequencyMixer(time_samples[1],6300,Fs);
 
     /*
@@ -192,13 +197,13 @@ int main(int argc, char** argv)
 
     //frequencyMixer(time_samples[1],941000, Fs);
     //CArray data(chunk, N); // Apply fft for 64 chunk
-    fft(final_samples);
+    fft(final_decimated_samples);
 
-    int temp = 25200;
+    int temp = 100;
     int temp2 = Fs;
     for (int i = 0; i < temp; i++)
     {
-        magnitude.push_back(abs(final_samples[i]));
+        magnitude.push_back(abs(final_decimated_samples[i]));
     }
     float resolution_freq = ((float)temp2 / temp);
     vector<float> freq_vector = arange(0, temp2, resolution_freq);
