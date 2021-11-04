@@ -18,7 +18,7 @@
 using namespace std;
 QT_CHARTS_USE_NAMESPACE
 
-const int N = 12600; // Samples
+const int N = 100; // Samples
 const int TIME_RESOLUTION = 32;
 const int FREQUENCY_RESOLUTION = 32;
 
@@ -156,54 +156,43 @@ int main(int argc, char** argv)
     float Fs = 1260000; // How many time points are needed i,e., Sampling Frequency
     int BW = 310000;
     int spectrogram_rate = 60;
-    complexSignal final_samples;
-    //Apply Hamming Window (NEED TO FIX THIS!!!)
-    
+    complexSignal final_samples(100);
+    int start_point;
+    int step = Fs / spectrogram_rate;
+    int counter = 0;
+
     for(int i = 0; i < time_samples.size(); i++)
     {
-        for(int j = 0; j < 12600; j++)
+        for(int j = 0; j < 1260000; j++)
         {
-            float multiplier = 0.5 * (1 - cos(2*M_PI*j/12600)); // Hann window
+            float multiplier = 0.5 * (1 - cos(2*M_PI*j/100)); //Hann window
             time_samples[i][j] *= multiplier;
         }
     }
 
-    //Combine them
-    for(int j = 0; j < 12600; j++)
+    //Split each sample by the spectrogram rate
+    for(int i = 0; i < spectrogram_rate; i++)
     {
-        complex<float> value = time_samples[0][j];
-        final_samples.push_back(value);
+        start_point = (Fs / spectrogram_rate) * i;
+        for(int j = start_point; j < start_point + step; j++)
+        {
+            //Compute and sum FFT of 100, 210 times
+            combined_samples.push_back(time_samples[0][j]);
+            if(combined_samples.size() == 100)
+            {
+                fft(combined_samples);
+                for(int h = 0; h < 100; h++)
+                    final_samples[h] += combined_samples[h]; //SUM
+                combined_samples.clear(); //Clear for next FFT
+            }
+        }
     }
-    complexSignal final_decimated_samples = decimated_array(126,final_samples);
-    frequencyMixer(final_decimated_samples,BW,Fs);
-    //frequencyMixer(time_samples[1],6300,Fs);
-
-    /*
-    for(int j = 0; j < 25200; j++)
-    {
-        std::complex<float> real_val = time_samples[0][j] + time_samples[1][j];
-        combined_samples.push_back(real_val);
-    }
-
-    for(int i = 0; i < 128; i++)
-    {
-        if(i < 100)
-            final_samples.push_back(combined_samples[i]);
-        else
-            final_samples.push_back({0,0});
-    }
-    */
-
-
-    //frequencyMixer(time_samples[1],941000, Fs);
-    //CArray data(chunk, N); // Apply fft for 64 chunk
-    fft(final_decimated_samples);
 
     int temp = 100;
     int temp2 = Fs;
     for (int i = 0; i < temp; i++)
     {
-        magnitude.push_back(abs(final_decimated_samples[i]));
+        magnitude.push_back(abs(final_samples[i]));
     }
     float resolution_freq = ((float)temp2 / temp);
     vector<float> freq_vector = arange(0, temp2, resolution_freq);
