@@ -154,13 +154,12 @@ int main(int argc, char** argv)
     vector<float> magnitude;
     complexSignal combined_samples;
     float Fs = 1260000; // How many time points are needed i,e., Sampling Frequency
-    int BW = 310000;
+    int BW = 12600;
     int spectrogram_rate = 60;
     complexSignal final_samples(100);
     int start_point;
     int step = Fs / spectrogram_rate;
-    int counter = 0;
-
+    vector<int> ch; // this will store the indexs of the samples after Treshold
     for(int i = 0; i < time_samples.size(); i++)
     {
         for(int j = 0; j < 1260000; j++)
@@ -180,6 +179,7 @@ int main(int argc, char** argv)
             combined_samples.push_back(time_samples[0][j]);
             if(combined_samples.size() == 100)
             {
+                frequencyMixer(combined_samples,315000,Fs);
                 fft(combined_samples);
                 for(int h = 0; h < 100; h++)
                     final_samples[h] += combined_samples[h]; //SUM
@@ -187,12 +187,25 @@ int main(int argc, char** argv)
             }
         }
     }
-
     int temp = 100;
     int temp2 = Fs;
     for (int i = 0; i < temp; i++)
     {
         magnitude.push_back(abs(final_samples[i]));
+    }
+
+    //Threshold checking
+    for (int i = 0; i < temp; i++)
+    {
+        if(magnitude[i] > 590000)
+            ch.push_back(i);
+    }
+    
+    //Classification Loop
+    float fcenter = 0;
+    for(int i = 0; i < ch.size(); i++)
+    {
+        fcenter = ch[i] * BW;
     }
     float resolution_freq = ((float)temp2 / temp);
     vector<float> freq_vector = arange(0, temp2, resolution_freq);
