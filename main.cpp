@@ -3,6 +3,7 @@
 #include <iostream>
 #include <cmath>
 #include "fft.hpp"
+#include "filt.h"
 #include <algorithm>
 #include <vector>
 #include <fstream>
@@ -146,7 +147,20 @@ complexSignal decimated_array(int M,complexSignal arr)
     }
     return decimated;
 }
- 
+complexSignal doFilter(Filter* my_filter, complexSignal samples, int N)
+{
+    complexSignal to_return;
+    float real_part, imag_part;
+    for(int i = 0; i < N; i++)
+    {
+        //std::cout << "NUM ISSSSSSSSSSSSSSSSSSSS: " << samples[i].real << std::endl;
+        real_part = my_filter->do_sample(samples[i].real());
+        imag_part = my_filter->do_sample(samples[i].imag());
+        to_return.push_back({real_part, imag_part});
+    }
+    return to_return;
+
+} 
 int main(int argc, char** argv)
 {
     QApplication a(argc, argv);
@@ -160,6 +174,13 @@ int main(int argc, char** argv)
     int start_point;
     int step = Fs / spectrogram_rate;
     vector<int> ch; // this will store the indexs of the samples after Treshold
+    Filter* BPF_Filter;
+    BPF_Filter = new Filter(BPF, 300, 1260,308.7, 321.3);
+    complexSignal after_BPF;
+
+    complexSignal after_BPF_FFT;
+    std::cout << "Error: " << BPF_Filter->get_error_flag();
+
     for(int i = 0; i < time_samples.size(); i++)
     {
         for(int j = 0; j < 1260000; j++)
@@ -203,9 +224,22 @@ int main(int argc, char** argv)
     
     //Classification Loop
     float fcenter = 0;
+    magnitude.clear();
     for(int i = 0; i < ch.size(); i++)
     {
         fcenter = ch[i] * BW;
+        after_BPF = doFilter(BPF_Filter, time_samples[i], 21000);
+        //frequencyMixer(after_BPF,-315000,Fs);
+        for(int j = 0; j < 100; j++)
+        {
+            after_BPF_FFT.push_back(after_BPF[j]);
+        }
+        fft(after_BPF_FFT);
+        for(int j = 0; j < 100; j++)
+        {
+            magnitude.push_back(abs(after_BPF_FFT[j]));
+        }
+        //BPF_Filter = new Filter(BPF, 300, 44.1, fcenter - (BW / 2), fcenter + (BW / 2));
     }
     float resolution_freq = ((float)temp2 / temp);
     vector<float> freq_vector = arange(0, temp2, resolution_freq);
