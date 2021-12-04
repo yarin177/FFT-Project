@@ -1,8 +1,9 @@
 #include "filt.h"
+
 #define ECODE(x) {m_error_flag = x; return;}
 
 // Handles LPF and HPF case
-Filter::Filter(filterType filt_t, int num_taps, double Fs, double Fx)
+Filter::Filter(filterType filt_t, int num_taps, float Fs, float Fx)
 {
 	m_error_flag = 0;
 	m_filt_t = filt_t;
@@ -16,8 +17,8 @@ Filter::Filter(filterType filt_t, int num_taps, double Fs, double Fx)
 	if( m_num_taps <= 0 || m_num_taps > MAX_NUM_FILTER_TAPS ) ECODE(-3);
 
 	m_taps = m_sr = NULL;
-	m_taps = (double*)malloc( m_num_taps * sizeof(double) );
-	m_sr = (double*)malloc( m_num_taps * sizeof(double) );
+	m_taps = (float*)malloc( m_num_taps * sizeof(float) );
+	m_sr = (float*)malloc( m_num_taps * sizeof(float) );
 	if( m_taps == NULL || m_sr == NULL ) ECODE(-4);
 	
 	init();
@@ -30,15 +31,15 @@ Filter::Filter(filterType filt_t, int num_taps, double Fs, double Fx)
 }
 
 // Handles BPF case
-Filter::Filter(filterType filt_t, int num_taps, double Fs, double Fl,
-               double Fu)
+Filter::Filter(filterType filt_t, int num_taps, int Fs, int Fl,
+               int Fu)
 {
 	m_error_flag = 0;
 	m_filt_t = filt_t;
 	m_num_taps = num_taps;
-	m_Fs = Fs;
-	m_Fx = Fl;
-	m_Fu = Fu;
+	m_Fs = Fs / 1000;
+	m_Fx = Fl / 1000;
+	m_Fu = Fu / 1000;
 	m_lambda = M_PI * Fl / (Fs/2);
 	m_phi = M_PI * Fu / (Fs/2);
 
@@ -49,8 +50,8 @@ Filter::Filter(filterType filt_t, int num_taps, double Fs, double Fl,
 	if( m_num_taps <= 0 || m_num_taps > MAX_NUM_FILTER_TAPS ) ECODE(-14);
 
 	m_taps = m_sr = NULL;
-	m_taps = (double*)malloc( m_num_taps * sizeof(double) );
-	m_sr = (double*)malloc( m_num_taps * sizeof(double) );
+	m_taps = (float*)malloc( m_num_taps * sizeof(float) );
+	m_sr = (float*)malloc( m_num_taps * sizeof(float) );
 	if( m_taps == NULL || m_sr == NULL ) ECODE(-15);
 	
 	init();
@@ -58,7 +59,6 @@ Filter::Filter(filterType filt_t, int num_taps, double Fs, double Fl,
 	if( m_filt_t == BPF ) designBPF();
 	else ECODE(-16);
 
-	std::cout << "Error: " << this->get_error_flag();
 	return;
 }
 
@@ -72,7 +72,7 @@ void
 Filter::designLPF()
 {
 	int n;
-	double mm;
+	float mm;
 
 	for(n = 0; n < m_num_taps; n++){
 		mm = n - (m_num_taps - 1.0) / 2.0;
@@ -87,7 +87,7 @@ void
 Filter::designHPF()
 {
 	int n;
-	double mm;
+	float mm;
 
 	for(n = 0; n < m_num_taps; n++){
 		mm = n - (m_num_taps - 1.0) / 2.0;
@@ -102,7 +102,7 @@ void
 Filter::designBPF()
 {
 	int n;
-	double mm;
+	float mm;
 
 	for(n = 0; n < m_num_taps; n++){
 		mm = n - (m_num_taps - 1.0) / 2.0;
@@ -115,7 +115,7 @@ Filter::designBPF()
 }
 
 void 
-Filter::get_taps(double* taps)
+Filter::get_taps(float* taps)
 {
 	int i;
 
@@ -138,11 +138,11 @@ Filter::init()
 	return;
 }
 
-double 
-Filter::do_sample(double data_sample)
+float 
+Filter::do_sample(float data_sample)
 {
 	int i;
-	double result;
+	float result;
 
 	if( m_error_flag != 0 ) return(0);
 
