@@ -124,7 +124,7 @@ vector<vector<float>> NormalizedBm(float max_dBm, vector<float> magnitude, vecto
 QChartView* plot_freq_magnitude_spectrum(vector<float> freq_vector, vector<float> mag_vector)
 {
     QLineSeries *series = new QLineSeries();
-    for(int i = 0; i < 100; i++)
+    for(int i = 0; i < N; i++)
     {
         series->append(freq_vector[i], mag_vector[i]);
     }
@@ -147,80 +147,99 @@ complexSignal decimated_array(int M,complexSignal arr)
     }
     return decimated;
 }
-complexSignal doFilter(Filter* my_filter, complexSignal samples, int N)
+vector<double> doFilter(Filter* my_filter, const complexSignal& samples, int N, bool real_part)
 {
-    complexSignal to_return;
-    float real_part, imag_part;
-    for(int i = 0; i < N; i++)
+    vector<double> to_return;
+    float part;
+    for (int i = 0; i < N; i++)
     {
-        //std::cout << "NUM ISSSSSSSSSSSSSSSSSSSS: " << samples[i].real << std::endl;
-        real_part = my_filter->do_sample(samples[i].real());
-        imag_part = my_filter->do_sample(samples[i].imag());
-        to_return.push_back({real_part, imag_part});
+        if (real_part)
+            part = my_filter->do_sample(samples[i].real());
+        else
+            part = my_filter->do_sample(samples[i].imag());
+        to_return.push_back(part);
     }
     return to_return;
 
-} 
+}
+
 int main(int argc, char** argv)
 {
     QApplication a(argc, argv);
+
     vector<complexSignal> time_samples = read_csv("test.csv");
     vector<float> magnitude;
     complexSignal combined_samples;
-    float Fs = 1260000; // How many time points are needed i,e., Sampling Frequency
+    float Fs = 1260000;
     int BW = 12600;
     int spectrogram_rate = 60;
-    complexSignal final_samples(100);
+    complexSignal final_samples(N);
     int start_point;
     int step = Fs / spectrogram_rate;
-    vector<int> ch; // this will store the indexs of the samples after Treshold
-    Filter* BPF_Filter;
-    BPF_Filter = new Filter(BPF, 300, 1260,308.7, 321.3);
+    vector<int> ch;
+
+    Filter* BPF_Filter_real;
+    Filter* BPF_Filter_imag;
+
     complexSignal after_BPF;
-
     complexSignal after_BPF_FFT;
-    std::cout << "Error: " << BPF_Filter->get_error_flag();
 
-    for(int i = 0; i < time_samples.size(); i++)
+    complex<double> temp;
+
+    int frequency1 = 252000;
+    int frequency2 = 315000;
+    int frequency3 = 378000;
+
+    const double  T = 1 / 1260000.0;
+
+    frequencyMixer(time_samples[0],315000,Fs);
+
+    //generate complex sine wave
+    for (int i = 0; i < 1260000; i++)
     {
-        for(int j = 0; j < 1260000; j++)
-        {
-            float multiplier = 0.5 * (1 - cos(2*M_PI*j/100)); //Hann window
-            time_samples[i][j] *= multiplier;
-        }
+        temp = { (0.7 * cos(2 * M_PI * frequency1 * (i * T))), (0.7 * sin(2 * M_PI * frequency1 * (i * T))) };
+        time_samples[0][i] += temp;
+
+        temp = { (0.7 * cos(2 * M_PI * frequency3 * (i * T))), (0.7 * sin(2 * M_PI * frequency3 * (i * T))) };
+        time_samples[0][i] += temp;
     }
+    
 
     //Split each sample by the spectrogram rate
     for(int i = 0; i < spectrogram_rate; i++)
     {
-        start_point = (Fs / spectrogram_rate) * i;
+        //Starting from 0, and stepping every 21000 samples
+        start_point = (Fs / spectrogram_rate) * i; 
         for(int j = start_point; j < start_point + step; j++)
         {
-            //Compute and sum FFT of 100, 210 times
+            //Compute and sum FFT of 100, 210 times so 21000 samples
             combined_samples.push_back(time_samples[0][j]);
-            if(combined_samples.size() == 100)
+            if(combined_samples.size() == N)
             {
-                frequencyMixer(combined_samples,315000,Fs);
+                //frequencyMixer(combined_samples,630000,Fs);
                 fft(combined_samples);
-                for(int h = 0; h < 100; h++)
+                for(int h = 0; h < N; h++)
                     final_samples[h] += combined_samples[h]; //SUM
                 combined_samples.clear(); //Clear for next FFT
             }
         }
     }
-    int temp = 100;
     int temp2 = Fs;
-    for (int i = 0; i < temp; i++)
+    for (int i = 0; i < N; i++)
     {
         magnitude.push_back(abs(final_samples[i]));
     }
-
     //Threshold checking
-    for (int i = 0; i < temp; i++)
+    for (int i = 0; i < N; i++)
     {
-        if(magnitude[i] > 590000)
+        if(magnitude[i] > 944000)
+        {
             ch.push_back(i);
+            cout << "Found CH: " << i << endl;
+        }
     }
+    
+    
     
     //Classification Loop
     float fcenter = 0;
@@ -228,20 +247,29 @@ int main(int argc, char** argv)
     for(int i = 0; i < ch.size(); i++)
     {
         fcenter = ch[i] * BW;
-        after_BPF = doFilter(BPF_Filter, time_samples[i], 21000);
-        //frequencyMixer(after_BPF,-315000,Fs);
-        for(int j = 0; j < 100; j++)
+
+        BPF_Filter_real = new Filter(BPF, 40, Fs, fcenter - (BW / 2), fcenter + (BW / 2));
+        BPF_Filter_imag = new Filter(BPF, 40, Fs, fcenter - (BW / 2), fcenter + (BW / 2));
+
+        vector<double> real_filtered = doFilter(BPF_Filter_real, time_samples[i], 21000, 1);
+        vector<double> imag_filtered = doFilter(BPF_Filter_imag, time_samples[i], 21000, 0);
+
+        for(int j = 0; j < N; j++)
         {
-            after_BPF_FFT.push_back(after_BPF[j]);
+            after_BPF_FFT.push_back({real_filtered[j], imag_filtered[j]});
+            float multiplier = 0.5 * (1 - cos(2*M_PI*j/N)); //Hann window
+            after_BPF_FFT[j] *= multiplier;
+
         }
+
         fft(after_BPF_FFT);
-        for(int j = 0; j < 100; j++)
+        for(int j = 0; j < N; j++)
         {
             magnitude.push_back(abs(after_BPF_FFT[j]));
         }
-        //BPF_Filter = new Filter(BPF, 300, 44.1, fcenter - (BW / 2), fcenter + (BW / 2));
     }
-    float resolution_freq = ((float)temp2 / temp);
+    
+    float resolution_freq = ((float)temp2 / N);
     vector<float> freq_vector = arange(0, temp2, resolution_freq);
 
     QChartView *chartView = plot_freq_magnitude_spectrum(freq_vector,magnitude);
