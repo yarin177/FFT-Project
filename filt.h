@@ -9,7 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
-#include <corecrt_math_defines.h>
 #include <iostream>
 
 enum filterType {LPF, HPF, BPF};
@@ -19,26 +18,26 @@ class Filter{
 		filterType m_filt_t;
 		int m_num_taps;
 		int m_error_flag;
-		double m_Fs;
-		double m_Fx;
-		double m_lambda;
-		double *m_taps;
-		double *m_sr;
+		float m_Fs;
+		float m_Fx;
+		float m_lambda;
+		float *m_taps;
+		float *m_sr;
 		void designLPF();
 		void designHPF();
 
 		// Only needed for the bandpass filter case
-		double m_Fu, m_phi;
+		float m_Fu, m_phi;
 		void designBPF();
 
 	public:
-		Filter(filterType filt_t, int num_taps, double Fs, double Fx);
-		Filter(filterType filt_t, int num_taps, double Fs, double Fl, double Fu);
+		Filter(filterType filt_t, int num_taps, float Fs, float Fx);
+		Filter(filterType filt_t, int num_taps, int Fs, int Fl, int Fu);
 		~Filter();
 		void init();
-		double do_sample(double data_sample);
+		float do_sample(float data_sample);
 		int get_error_flag(){return m_error_flag;};
-		void get_taps( double *taps );
+		void get_taps( float *taps );
 };
 
 #endif
