@@ -9,4 +9,4 @@ QT += gui widgets
 
 
 SOURCES += main.cpp 
-
+SOURCES += filt.cpp
