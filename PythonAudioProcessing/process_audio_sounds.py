@@ -77,7 +77,7 @@ def SamplerateConversion(samples, new_fs, old_fs):
     elif L > 1 and M > 1:
         inter = interpolation(samples,L,old_fs)
         filtered_inter = low_cut_filter(inter,old_fs * L,22050)
-        dec = decimation(filtered_inter,M,old_fs)
+        dec = decimation(filtered_inter,M)
         return dec
 
 def interpolation(samples,num, old_fs):
@@ -91,7 +91,7 @@ def interpolation(samples,num, old_fs):
                 inter_samples.append(0)
     return inter_samples
 
-def decimation(samples,num, old_fs):
+def decimation(samples,num):
     inter_samples = []
     i = num - 1
     for j in samples:
@@ -134,6 +134,23 @@ def ComplexToList(type, Fs):
         (list): 1D list of the desired type
     """
 
+    max_val = int(Fs / 1260000) * 1260000
+    lst = []
+    tmp = []
+    for i in range(0,max_val,1260000):
+        for j in range(1260000):
+            tmp.append(type[j+i].real)
+        for j in range(1260000):
+            tmp.append(type[j+i].imag)
+        lst.append(tmp)
+        tmp = []
+
+    return lst
+
+def ComplexToList_nn(type, Fs):
+    #THIS FUNCTION IS ONLY USED TO GENERATE 
+    #TRAINING AND TESTING DATA FOR THE NN
+
     max_val = int(Fs / 256) * 256
     lst = []
     tmp = []
@@ -175,8 +192,6 @@ def main():
     data = normalizeAudio(data[0:int(samplerate*SAMPLE_FOR)])
 
     time_vec = np.arange(0, 1, 1 / 1260000)
-
-
     #Set the Bandwidth to 12.6KHz
     BW = 6300
     w = low_cut_filter(data,samplerate,BW)
@@ -193,24 +208,20 @@ def main():
     samples_fm = generateSignalFM(f,time_vec)
 
     #Convert samples to NN list
-    am = ComplexToList(samples_am,1260000)
-    fm = ComplexToList(samples_fm,1260000)
+    am = ComplexToList_nn(samples_am,1260000)
+    fm = ComplexToList_nn(samples_fm,1260000)
 
     #Save to files
     writeCSV('FM',fm,path)
     writeCSV('AM',am,path)
+    #Save to files
 
+    #writeCSV('FM',fm,path)
+    #writeCSV('AM',am,path
+    
     '''
-    lst = [am[0],fm[0]]
-    f = open('test.csv', 'w', newline='')
-    writer = csv.writer(f)
-    writer.writerows(lst)
-    f.close()
-    '''
-
-    '''
-    fft_out = fft(samples_am[0:256])
-    freq_vector = np.arange(0, 1260000, 1260000 / 256)
+    fft_out = np.fft.fft(samples_am[0:12600])
+    freq_vector = np.arange(0, 1260000, 1260000 / 12600)
     plt.plot(freq_vector, np.abs(fft_out))
     plt.show()
     '''
