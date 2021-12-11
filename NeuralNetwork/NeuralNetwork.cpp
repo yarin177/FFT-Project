@@ -249,7 +249,7 @@ bool contains(const string& s, const char letter) {
 }
 vector<MatrixXf> NeuralNetwork::loadModel()
 {
-	std::ifstream file("Model.txt");
+	std::ifstream file("NeuralNetwork/Model.txt");
 	string str;
 	vector<string> data;
 	vector<MatrixXf> matrixs;
