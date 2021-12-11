@@ -1,4 +1,5 @@
 #define _USE_MATH_DEFINES
+#include <map>
 #include <stdio.h>
 #include <iostream>
 #include <cmath>
@@ -7,7 +8,9 @@
 #include <algorithm>
 #include <vector>
 #include <fstream>
- 
+#include "NeuralNetwork/NeuralNetwork.h"
+#include "NeuralNetwork/Training.h"
+
 #include <QApplication>
 #include <QImage>
 #include <QLabel>
@@ -162,11 +165,21 @@ vector<double> doFilter(Filter* my_filter, const complexSignal& samples, int N, 
     return to_return;
 
 }
+string predict_modulation(NeuralNetwork nn, vector<float> inputs)
+{
+    //This function takes a Neural Network object and vector of inputs
+    //It Outputs the type of modulation classified by the NN (AM\FM)
 
+    vector<float> outputs = nn.predict(inputs);
+    if(outputs[0] > outputs[1])
+        return "FM";
+    else
+        return "AM";
+}
 int main(int argc, char** argv)
 {
     QApplication a(argc, argv);
-
+    NeuralNetwork nn;
     vector<complexSignal> time_samples = read_csv("test.csv");
     vector<float> magnitude;
     complexSignal combined_samples;
@@ -186,12 +199,12 @@ int main(int argc, char** argv)
 
     complex<double> temp;
 
-    int frequency1 = 252000;
+    int frequency1 = 302400;
     int frequency2 = 315000;
-    int frequency3 = 378000;
+    int frequency3 = 327600;
 
     const double  T = 1 / 1260000.0;
-
+    vector<float> inputs;
     frequencyMixer(time_samples[0],315000,Fs);
 
     //generate complex sine wave
@@ -235,24 +248,47 @@ int main(int argc, char** argv)
         if(magnitude[i] > 944000)
         {
             ch.push_back(i);
-            cout << "Found CH: " << i << endl;
+            cout << "Found Ch: " << i << endl;
         }
     }
-    
+    map<int, string> nn_results;
     
     
     //Classification Loop
     float fcenter = 0;
     magnitude.clear();
+
+    int counterFM = 0;
+    int counterAM = 0;
     for(int i = 0; i < ch.size(); i++)
     {
         fcenter = ch[i] * BW;
-
+        cout << "fcenter at: " << fcenter << ", filtering above " << fcenter + (BW / 2) << " and below " << fcenter - (BW / 2) << endl;
         BPF_Filter_real = new Filter(BPF, 40, Fs, fcenter - (BW / 2), fcenter + (BW / 2));
         BPF_Filter_imag = new Filter(BPF, 40, Fs, fcenter - (BW / 2), fcenter + (BW / 2));
 
         vector<double> real_filtered = doFilter(BPF_Filter_real, time_samples[i], 21000, 1);
         vector<double> imag_filtered = doFilter(BPF_Filter_imag, time_samples[i], 21000, 0);
+        cout << "Splitting 21,000 samples into chunks of 256 and predicting type of modulation for each chunk" << endl;
+        for(int h = 0; h < 80; h++)
+        {
+            for(int j = h*256; j < (h*256) + 256; j++)
+                inputs.push_back(real_filtered[j]);
+
+            for(int j = h*256; j < (h*256) + 256; j++)
+                inputs.push_back(imag_filtered[j]);
+
+            string prediction = predict_modulation(nn,inputs);
+            if (prediction == "FM")
+                counterFM++;
+            else
+                counterAM++;
+            inputs.clear();
+        }
+        if(counterFM > counterAM)
+            nn_results.insert(pair<int, string>(ch[i], "FM"));
+        else
+            nn_results.insert(pair<int, string>(ch[i], "AM"));
 
         for(int j = 0; j < N; j++)
         {
@@ -268,7 +304,11 @@ int main(int argc, char** argv)
             magnitude.push_back(abs(after_BPF_FFT[j]));
         }
     }
-    
+    std::cout << "Final output: " << std::endl;
+    map<int, string>::iterator itr;
+    for (itr = nn_results.begin(); itr != nn_results.end(); ++itr) {
+        std::cout << itr->first << ':' << itr->second <<  ' ' << std::endl;
+    }
     float resolution_freq = ((float)temp2 / N);
     vector<float> freq_vector = arange(0, temp2, resolution_freq);
 
