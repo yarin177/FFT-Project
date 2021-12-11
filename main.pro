@@ -10,3 +10,4 @@ QT += gui widgets
 
 SOURCES += main.cpp 
 SOURCES += filt.cpp
+SOURCES += NeuralNetwork/NeuralNetwork.cpp
