@@ -183,6 +183,12 @@ def writeCSV(file_name, data,path):
     print("Saved training file to '" +  path + training_file_name + "'")
     print("Saved testing file to '" + path + testing_file_name + "'")
 
+def writeCSV_nn(file_name, data,path): 
+    f = open(path + file_name, 'w', newline='')
+    writer = csv.writer(f)
+    writer.writerows([data])
+    f.close()
+
 def main():
     path = '../NeuralNetwork/TrainingTestingFiles/'
 
@@ -208,12 +214,15 @@ def main():
     samples_fm = generateSignalFM(f,time_vec)
 
     #Convert samples to NN list
-    am = ComplexToList_nn(samples_am,1260000)
-    fm = ComplexToList_nn(samples_fm,1260000)
+    #am = ComplexToList_nn(samples_am,1260000)
+    #fm = ComplexToList_nn(samples_fm,1260000)
+
+    am = ComplexToList(samples_am,1260000)
+    writeCSV_nn('am_signal.csv',am[0],'')
 
     #Save to files
-    writeCSV('FM',fm,path)
-    writeCSV('AM',am,path)
+    #writeCSV('FM',fm,path)
+    #writeCSV('AM',am,path)
     #Save to files
 
     #writeCSV('FM',fm,path)
