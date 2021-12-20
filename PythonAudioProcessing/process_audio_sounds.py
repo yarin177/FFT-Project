@@ -167,7 +167,12 @@ def ComplexToList_nn(type, Fs):
 def writeCSV(file_name, data,path): 
     len_training = int(len(data) * 0.9)
     len_testing = int(len(data) * 0.1)
+    f = open(file_name + '_signal.csv', 'w', newline='')
+    writer = csv.writer(f)
+    writer.writerows([data[0]])
+    f.close()
 
+    """
     training_file_name = 'training' + file_name + str(len_training) + '.csv'
     f = open(path + training_file_name, 'w', newline='')
     writer = csv.writer(f)
@@ -182,11 +187,15 @@ def writeCSV(file_name, data,path):
 
     print("Saved training file to '" +  path + training_file_name + "'")
     print("Saved testing file to '" + path + testing_file_name + "'")
-
+    """
 def writeCSV_nn(file_name, data,path): 
+    Fs = 1260000
+    tmp1 = data[0:256]
+    tmp2 = data[Fs:Fs+256]
+    
     f = open(path + file_name, 'w', newline='')
     writer = csv.writer(f)
-    writer.writerows([data])
+    writer.writerows([tmp1 + tmp2])
     f.close()
 
 def main():
@@ -195,7 +204,7 @@ def main():
     SAMPLE_FOR = 1 # in seconds
     samplerate, data = scipy.io.wavfile.read(r'Recording.wav')
     time = np.arange(0,SAMPLE_FOR,1/samplerate) #time vector
-    data = normalizeAudio(data[0:int(samplerate*SAMPLE_FOR)])
+    data = normalizeAudio(data[44100:44100 + int(samplerate*SAMPLE_FOR)])
 
     time_vec = np.arange(0, 1, 1 / 1260000)
     #Set the Bandwidth to 12.6KHz
@@ -214,15 +223,23 @@ def main():
     samples_fm = generateSignalFM(f,time_vec)
 
     #Convert samples to NN list
-    #am = ComplexToList_nn(samples_am,1260000)
-    #fm = ComplexToList_nn(samples_fm,1260000)
-
     am = ComplexToList(samples_am,1260000)
-    writeCSV_nn('am_signal.csv',am[0],'')
+    fm = ComplexToList(samples_fm,1260000)
 
+    #f = open('fm_signal.csv', 'w', newline='')
+    #writer = csv.writer(f)
+    #writer.writerows([fm[0]])
+    #f.close()
+
+    #am = ComplexToList(samples_am,1260000)
+    #fm = ComplexToList(samples_fm,1260000)
+
+    #writeCSV_nn('am_signal.csv',am[0],'')
+    #writeCSV_nn('fm_signal.csv',fm[0],'')
+    
     #Save to files
-    #writeCSV('FM',fm,path)
-    #writeCSV('AM',am,path)
+    writeCSV('FM',fm,path)
+    writeCSV('AM',am,path)
     #Save to files
 
     #writeCSV('FM',fm,path)
