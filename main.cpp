@@ -180,7 +180,9 @@ int main(int argc, char** argv)
 {
     QApplication a(argc, argv);
     NeuralNetwork nn;
-    vector<complexSignal> time_samples = read_csv("test.csv");
+    vector<complexSignal> time_samples_am = read_csv("AM_signal.csv");
+    vector<complexSignal> time_samples_fm = read_csv("FM_signal.csv");
+    vector<complexSignal> all_samples; // this will store both am+fm
     vector<float> magnitude;
     complexSignal combined_samples;
     float Fs = 1260000;
@@ -195,19 +197,84 @@ int main(int argc, char** argv)
     Filter* BPF_Filter_imag;
 
     complexSignal after_BPF;
-    complexSignal after_BPF_FFT;
 
     complex<double> temp;
 
-    int frequency1 = 302400;
+    int frequency1 = 252000;
     int frequency2 = 315000;
-    int frequency3 = 327600;
+    int frequency3 = 387000;
 
+    vector<float> inputs;
+    int counterFM = 0, counterAM = 0;
+    frequencyMixer(time_samples_fm[0],793800,Fs);
+    frequencyMixer(time_samples_am[0],37800,Fs);
+    
+    complexSignal tmp_samples_helper;
+    complex<float> temp_value;
+    for(int i = 0; i < time_samples_am.size(); i++)
+    {
+        for(int j = 0; j < time_samples_am[i].size(); j++)
+        {
+            temp_value.real(time_samples_am[i][j].real() + time_samples_fm[i][j].real());
+            temp_value.imag(time_samples_am[i][j].imag() + time_samples_fm[i][j].imag());
+            
+            tmp_samples_helper.push_back(temp_value);
+        }
+        all_samples.push_back(tmp_samples_helper);
+        tmp_samples_helper.clear();
+    }
+    /*
     const double  T = 1 / 1260000.0;
     vector<float> inputs;
-    frequencyMixer(time_samples[0],315000,Fs);
+    int counterFM = 0, counterAM = 0;
+    int fcenter = 630000;
+    complexSignal filtered_complex;
+    frequencyMixer(time_samples[0],fcenter,Fs);
+    
+    cout << "fcenter at: " << fcenter << ", filtering above " << fcenter + (BW / 2) << " and below " << fcenter - (BW / 2) << endl;
+    BPF_Filter_real = new Filter(BPF, 40, Fs, fcenter - (BW / 2), fcenter + (BW / 2));
+    BPF_Filter_imag = new Filter(BPF, 40, Fs, fcenter - (BW / 2), fcenter + (BW / 2));
 
+    std::cout << "Error: " << BPF_Filter_real->get_error_flag() << std::endl;
+    std::cout << "Error: " << BPF_Filter_imag->get_error_flag() << std::endl;
+
+    vector<double> real_filtered = doFilter(BPF_Filter_real, time_samples[0], 21000, 1);
+    vector<double> imag_filtered = doFilter(BPF_Filter_imag, time_samples[0], 21000, 0);
+
+    for(int h = 0; h < 21000; h++)
+    {
+        filtered_complex.push_back({ real_filtered[h] , imag_filtered[h]});
+    }
+    
+    frequencyMixer(filtered_complex,-fcenter,Fs);
+
+    for(int h = 0; h < 80; h++)
+    {
+        for(int j = h*256; j < (h*256) + 256; j++)
+            inputs.push_back(filtered_complex[j].real());
+
+        for(int j = h*256; j < (h*256) + 256; j++)
+            inputs.push_back(filtered_complex[j].imag());
+
+        string prediction = predict_modulation(nn,inputs);
+        if (prediction == "FM")
+            counterFM++;
+        else
+            counterAM++;
+        inputs.clear();
+    }
+    cout << counterFM << " AND " << counterAM << endl;
+
+    //FFT
+    fft(after_BPF);
+    for(int j = 0; j < 100; j++)
+    {
+        magnitude.push_back(abs(after_BPF[j]));
+    }
+
+    /*
     //generate complex sine wave
+    /*
     for (int i = 0; i < 1260000; i++)
     {
         temp = { (0.7 * cos(2 * M_PI * frequency1 * (i * T))), (0.7 * sin(2 * M_PI * frequency1 * (i * T))) };
@@ -216,8 +283,8 @@ int main(int argc, char** argv)
         temp = { (0.7 * cos(2 * M_PI * frequency3 * (i * T))), (0.7 * sin(2 * M_PI * frequency3 * (i * T))) };
         time_samples[0][i] += temp;
     }
+    */
     
-
     //Split each sample by the spectrogram rate
     for(int i = 0; i < spectrogram_rate; i++)
     {
@@ -226,7 +293,7 @@ int main(int argc, char** argv)
         for(int j = start_point; j < start_point + step; j++)
         {
             //Compute and sum FFT of 100, 210 times so 21000 samples
-            combined_samples.push_back(time_samples[0][j]);
+            combined_samples.push_back(all_samples[0][j]);
             if(combined_samples.size() == N)
             {
                 //frequencyMixer(combined_samples,630000,Fs);
@@ -245,21 +312,18 @@ int main(int argc, char** argv)
     //Threshold checking
     for (int i = 0; i < N; i++)
     {
-        if(magnitude[i] > 944000)
+        if(magnitude[i] > 6000)
         {
             ch.push_back(i);
             cout << "Found Ch: " << i << endl;
         }
     }
+    
     map<int, string> nn_results;
-    
-    
+    complexSignal filtered_complex;
+    complexSignal to_fft;
     //Classification Loop
     float fcenter = 0;
-    magnitude.clear();
-
-    int counterFM = 0;
-    int counterAM = 0;
     for(int i = 0; i < ch.size(); i++)
     {
         fcenter = ch[i] * BW;
@@ -267,16 +331,25 @@ int main(int argc, char** argv)
         BPF_Filter_real = new Filter(BPF, 40, Fs, fcenter - (BW / 2), fcenter + (BW / 2));
         BPF_Filter_imag = new Filter(BPF, 40, Fs, fcenter - (BW / 2), fcenter + (BW / 2));
 
-        vector<double> real_filtered = doFilter(BPF_Filter_real, time_samples[i], 21000, 1);
-        vector<double> imag_filtered = doFilter(BPF_Filter_imag, time_samples[i], 21000, 0);
+        vector<double> real_filtered = doFilter(BPF_Filter_real, all_samples[0], 21000, 1);
+        vector<double> imag_filtered = doFilter(BPF_Filter_imag, all_samples[0], 21000, 0);
+
+        for(int h = 0; h < 21000; h++)
+        {
+            filtered_complex.push_back({ real_filtered[h] , imag_filtered[h]});
+        }
+    
+
+        frequencyMixer(filtered_complex,-fcenter,Fs);
+
         cout << "Splitting 21,000 samples into chunks of 256 and predicting type of modulation for each chunk" << endl;
         for(int h = 0; h < 80; h++)
         {
             for(int j = h*256; j < (h*256) + 256; j++)
-                inputs.push_back(real_filtered[j]);
+                inputs.push_back(filtered_complex[j].real());
 
             for(int j = h*256; j < (h*256) + 256; j++)
-                inputs.push_back(imag_filtered[j]);
+                inputs.push_back(filtered_complex[j].imag());
 
             string prediction = predict_modulation(nn,inputs);
             if (prediction == "FM")
@@ -285,32 +358,23 @@ int main(int argc, char** argv)
                 counterAM++;
             inputs.clear();
         }
+        cout << counterFM << " AND " << counterAM << endl;
         if(counterFM > counterAM)
             nn_results.insert(pair<int, string>(ch[i], "FM"));
         else
             nn_results.insert(pair<int, string>(ch[i], "AM"));
 
-        for(int j = 0; j < N; j++)
-        {
-            after_BPF_FFT.push_back({real_filtered[j], imag_filtered[j]});
-            float multiplier = 0.5 * (1 - cos(2*M_PI*j/N)); //Hann window
-            after_BPF_FFT[j] *= multiplier;
-
-        }
-
-        fft(after_BPF_FFT);
-        for(int j = 0; j < N; j++)
-        {
-            magnitude.push_back(abs(after_BPF_FFT[j]));
-        }
+        counterFM = 0;
+        counterAM = 0;
     }
     std::cout << "Final output: " << std::endl;
     map<int, string>::iterator itr;
     for (itr = nn_results.begin(); itr != nn_results.end(); ++itr) {
         std::cout << itr->first << ':' << itr->second <<  ' ' << std::endl;
     }
-    float resolution_freq = ((float)temp2 / N);
-    vector<float> freq_vector = arange(0, temp2, resolution_freq);
+    
+    float resolution_freq = ((float)Fs / N);
+    vector<float> freq_vector = arange(0, Fs, resolution_freq);
 
     QChartView *chartView = plot_freq_magnitude_spectrum(freq_vector,magnitude);
 
