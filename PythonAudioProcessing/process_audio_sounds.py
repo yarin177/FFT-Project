@@ -7,7 +7,7 @@ import scipy.signal as sig
 import csv
 
 def normalizeAudio(data):
-    return np.float32((data / max(data)))
+    return np.complex128((data / max(data)))
 
 def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
@@ -49,7 +49,10 @@ def generateSignalFM(slc, time_vec):
 
     # modulate
     x = np.exp(1j * phi)
-    return x
+
+    normilized_fm = normalizeAudio(x)
+
+    return normilized_fm
 
 def generateSignalAM(samples):
     Z = np.zeros(len(samples), dtype=complex)
@@ -57,7 +60,10 @@ def generateSignalAM(samples):
     for i in range(len(samples)):
         value = samples[i] + 1
         Z[i] = value + 0j 
-    return Z
+    
+    normilized_am = normalizeAudio(Z)
+
+    return normilized_am
 
 def SamplerateConversion(samples, new_fs, old_fs):
     L = int(new_fs / 100)
@@ -204,7 +210,7 @@ def main():
     SAMPLE_FOR = 1 # in seconds
     samplerate, data = scipy.io.wavfile.read(r'Recording.wav')
     time = np.arange(0,SAMPLE_FOR,1/samplerate) #time vector
-    data = normalizeAudio(data[44100:44100 + int(samplerate*SAMPLE_FOR)])
+    data = normalizeAudio(data[0:int(samplerate*SAMPLE_FOR)])
 
     time_vec = np.arange(0, 1, 1 / 1260000)
     #Set the Bandwidth to 12.6KHz
