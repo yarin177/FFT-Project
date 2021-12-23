@@ -60,7 +60,7 @@ def generateSignalAM(samples):
     for i in range(len(samples)):
         value = samples[i] + 1
         Z[i] = value + 0j 
-    
+
     #normilized_am = normalizeAudio(Z)
     return Z
 
@@ -209,26 +209,33 @@ def main():
     SAMPLE_FOR = 1 # in seconds
     samplerate, data = scipy.io.wavfile.read(r'Recording.wav')
     time = np.arange(0,SAMPLE_FOR,1/samplerate) #time vector
-    #data = normalizeAudio(data[0:int(samplerate*SAMPLE_FOR)])
+    data = normalizeAudio(data[0:int(samplerate*SAMPLE_FOR)])
 
     time_vec = np.arange(0, 1, 1 / 1260000)
     #Set the Bandwidth to 12.6KHz
     BW = 6300
     w = low_cut_filter(data,samplerate,BW)
-
+    
     #Set new Sampeling rate to 1.26MHz
     f = sig.resample(w, 1260000)
+    normalized_f = normalizeAudio(f)
+
+    time_old = np.arange(0,SAMPLE_FOR,1/1260000)
 
     #f = SamplerateConversion(data,1260000,44100)
 
-    #Normalize
-    normilized_audio = normalizeAudio(f)
-
     #AM Modulation (Zero-IF)
-    samples_am = generateSignalAM(normilized_audio)
+    samples_am = generateSignalAM(normalized_f)
+
+    #plt.plot(time_old[0:1260000], f[0:1260000])
+
 
     #FM Modulation (Zero-IF)
-    samples_fm = generateSignalFM(normilized_audio,time_vec)
+    samples_fm = generateSignalFM(f,time_vec)
+
+    #plt.plot(time_old, normalized_f)
+    #plt.plot(time_old, samples_am)
+    #plt.show()
 
     #Convert samples to NN list
     am = ComplexToList(samples_am,1260000)
