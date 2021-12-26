@@ -231,15 +231,17 @@ def main():
 
 
     #FM Modulation (Zero-IF)
-    samples_fm = generateSignalFM(f,time_vec)
+    samples_fm = generateSignalFM(normalized_f,time_vec)
 
     #plt.plot(time_old, normalized_f)
     #plt.plot(time_old, samples_am)
     #plt.show()
 
+    fm_filtered = low_cut_filter(samples_fm,1260000,BW)
+
     #Convert samples to NN list
     am = ComplexToList(samples_am,1260000)
-    fm = ComplexToList(samples_fm,1260000)
+    fm = ComplexToList(fm_filtered,1260000)
 
     #f = open('fm_signal.csv', 'w', newline='')
     #writer = csv.writer(f)
