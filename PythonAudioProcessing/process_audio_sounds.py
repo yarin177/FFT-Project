@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.io.wavfile
 from scipy.fftpack import fft
+from scipy.signal import butter, lfilter, freqz
 import scipy.signal as sig
 import csv
 
@@ -27,7 +28,7 @@ def compute_hcf(x, y):
     return hcf
 
 def generateSignalFM(slc, time_vec):
-    b = 0.3
+    b = 0
     slc /= (2*np.abs(slc).max())
     N = len(slc)
     fc = 0
@@ -169,6 +170,18 @@ def ComplexToList_nn(type, Fs):
 
     return lst
 
+
+def butter_lowpass(cutoff, fs, order=5):
+    nyq = fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+    return b, a
+
+def butter_lowpass_filter(data, cutoff, fs, order=5):
+    b, a = butter_lowpass(cutoff, fs, order=order)
+    y = lfilter(b, a, data)
+    return y
+
 def writeCSV(file_name, data,path): 
     len_training = int(len(data) * 0.9)
     len_testing = int(len(data) * 0.1)
@@ -236,12 +249,24 @@ def main():
     #plt.plot(time_old, normalized_f)
     #plt.plot(time_old, samples_am)
     #plt.show()
+    sine = 2 * np.pi * 310000 * time_vec
 
-    fm_filtered = low_cut_filter(samples_fm,1260000,BW)
+    fm_filtered = butter_lowpass_filter(samples_fm, BW, 1260000, 6)
+    signal = np.exp(1j* sine) * samples_am
+
+    #fft_out = np.fft.fft(fm_filtered[0:100])
+    #freq_vector = np.arange(0, 1260000, 1260000 / 100)
+    #plt.plot(freq_vector, np.abs(fft_out))
+    #for i in range(100):
+    #    print(np.abs(fft_out[i]))
+    #plt.show()
+    #exit(0)
+    #norm_am = normalizeAudio(samples_am)
+    #norm_fm = normalizeAudio(fm_filtered)
 
     #Convert samples to NN list
     am = ComplexToList(samples_am,1260000)
-    fm = ComplexToList(fm_filtered,1260000)
+    fm = ComplexToList(samples_fm,1260000)
 
     #f = open('fm_signal.csv', 'w', newline='')
     #writer = csv.writer(f)
