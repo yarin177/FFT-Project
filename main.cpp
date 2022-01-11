@@ -10,6 +10,7 @@
 #include <fstream>
 #include "NeuralNetwork/NeuralNetwork.h"
 #include "NeuralNetwork/Training.h"
+#include <Iir.h>
 
 #include <QApplication>
 #include <QImage>
@@ -19,12 +20,13 @@
 #include <QLineSeries>
 #include <QMainWindow>
 
+
 using namespace std;
 QT_CHARTS_USE_NAMESPACE
 
 const int N = 100; // Samples
-const int TIME_RESOLUTION = 32;
-const int FREQUENCY_RESOLUTION = 32;
+const int TIME_RESOLUTION = 100;
+const int FREQUENCY_RESOLUTION = 100;
 
 typedef vector<complex<float>> complexSignal;
 vector<complexSignal> read_csv(std::string filename) {
@@ -68,6 +70,18 @@ void frequencyMixer(complexSignal& data, const int frequency, const float Fs)
         data[i] = data[i] * chunk[i];
     }
 } 
+complexSignal frequencyMixerCopy(complexSignal data, const int frequency, const float Fs)
+{
+    complexSignal chunk(data.size());
+    const double  T = 1 / Fs; // At what intervals time points are sampled
+    for(int i = 0; i < chunk.size(); i++)
+    {
+        chunk[i] = {(float)(1 * cos(2 * M_PI * frequency * (i * T))),(float)(1 * sin(2 * M_PI * frequency * (i * T)))};
+        data[i] = data[i] * chunk[i];
+    }
+    return data;
+} 
+
 vector<float> arange(float start, float stop, float step) {
     vector<float> values;
     for (float value = start; value < stop; value += step)
@@ -91,24 +105,50 @@ Color GetColorEntry(float x) { // Converts dBm entry to RGB color entry
     pixel = { R,G,B };
     return pixel;
 }
- 
-QImage displaySpectrogram(vector<vector<float>> dBm)
+bool mapContainsKey(std::map<int, string>& map, int key)
+{
+  if (map.find(key) == map.end()) return false;
+  return true;
+} 
+vector<float> normilizeMagnitude(vector<float> magnitude)
+{
+    for(int i = 0; i < magnitude.size(); i++)
+    {
+        magnitude[i] = 30 + (20 * log10(magnitude[i]));
+    }
+    return magnitude;
+}
+QImage displaySpectrogram(map<int, string> nn_results, vector<float> magnitude)
 {
     QImage image(QSize(FREQUENCY_RESOLUTION, TIME_RESOLUTION), QImage::Format_RGB32);
     QRgb value;
- 
-    Color colors;
- 
+
+    vector<float> normilized_magnitude = normilizeMagnitude(magnitude);
+
     for (int i = 0; i < TIME_RESOLUTION; i++)
     {
         for (int j = 0; j < FREQUENCY_RESOLUTION; j++)
         {
-            colors = GetColorEntry(dBm[i][j]);
-            value = qRgb(colors.R, colors.G, colors.B);
-            image.setPixel(j, i, value);
+            
+            if(mapContainsKey(nn_results,j))
+            {
+                Color color;
+                if(nn_results.find(j)->second == "AM")
+                    color = {normilized_magnitude[j],0,0};
+                else
+                    color = {0,normilized_magnitude[j],0};
+                value = qRgb(color.R, color.G, color.B);
+                image.setPixel(j, i, value);
+            }
+            else
+            {
+                value = qRgb(normilized_magnitude[j], normilized_magnitude[j], normilized_magnitude[j]);
+                image.setPixel(j, i, value);
+            }
+            
         }
     }
-    QImage img2 = image.scaled(640, 320, Qt::KeepAspectRatio);
+    QImage img2 = image.scaled(1000, 1000, Qt::KeepAspectRatio);
     return img2;
 }
 vector<vector<float>> NormalizedBm(float max_dBm, vector<float> magnitude, vector<vector<float>> dBm)
@@ -150,16 +190,16 @@ complexSignal decimated_array(int M,complexSignal arr)
     }
     return decimated;
 }
-vector<double> doFilter(Filter* my_filter, const complexSignal& samples, int N, bool real_part)
+vector<double> doFilter(Iir::Butterworth::BandPass<3> f, const complexSignal& samples, int N, bool real_part)
 {
     vector<double> to_return;
     float part;
     for (int i = 0; i < N; i++)
     {
         if (real_part)
-            part = my_filter->do_sample(samples[i].real());
+            part = f.filter(samples[i].real());
         else
-            part = my_filter->do_sample(samples[i].imag());
+            part = f.filter(samples[i].imag());
         to_return.push_back(part);
     }
     return to_return;
@@ -176,78 +216,60 @@ string predict_modulation(NeuralNetwork nn, vector<float> inputs)
     else
         return "AM";
 }
-int main(int argc, char** argv)
+struct FFT_RESULTS {
+  vector<int> ch; //channels
+  vector<float> magnitude;
+};
+
+FFT_RESULTS calculateFFT(int spectrogram_rate, int Fs, complexSignal to_test)
 {
-    QApplication a(argc, argv);
-    NeuralNetwork nn;
-    vector<complexSignal> time_samples_am = read_csv("AM_signal.csv");
-    vector<complexSignal> time_samples_fm = read_csv("FM_signal.csv");
-    vector<complexSignal> all_samples; // this will store both am+fm
-    vector<float> magnitude;
+    vector<int> ch;
     complexSignal combined_samples;
-    float Fs = 1260000;
-    int BW = 12600;
-    int spectrogram_rate = 60;
     complexSignal final_samples(N);
     int start_point;
     int step = Fs / spectrogram_rate;
-    vector<int> ch;
-
-    Filter* BPF_Filter_real;
-    Filter* BPF_Filter_imag;
-
-    complexSignal after_BPF;
-
-    complex<double> temp;
-
-    int frequency1 = 252000;
-    int frequency2 = 315000;
-    int frequency3 = 387000;
-
-    vector<float> inputs;
-    int counterFM = 0, counterAM = 0;
-    frequencyMixer(time_samples_fm[0],793800,Fs);
-    frequencyMixer(time_samples_am[0],37800,Fs);
-    
-    complexSignal tmp_samples_helper;
-    complex<float> temp_value;
-    for(int i = 0; i < time_samples_am.size(); i++)
+    vector<float> magnitude;
+    //Split each sample by the spectrogram rate
+    for(int i = 0; i < spectrogram_rate; i++)
     {
-        for(int j = 0; j < time_samples_am[i].size(); j++)
+        //Starting from 0, and stepping every 21000 samples
+        start_point = (Fs / spectrogram_rate) * i; 
+        for(int j = start_point; j < start_point + step; j++)
         {
-            temp_value.real(time_samples_am[i][j].real() + time_samples_fm[i][j].real());
-            temp_value.imag(time_samples_am[i][j].imag() + time_samples_fm[i][j].imag());
-            
-            tmp_samples_helper.push_back(temp_value);
+            //Compute and sum FFT of 100, 210 times so 21000 samples
+            combined_samples.push_back(to_test[j]);
+            if(combined_samples.size() == N)
+            {
+                //frequencyMixer(combined_samples,630000,Fs);
+                fft(combined_samples);
+                for(int h = 0; h < N; h++)
+                {
+                    complex<double> vaaal = abs(combined_samples[h]) / N;
+                    final_samples[h] += vaaal; //SUM
+                }
+                
+                combined_samples.clear(); //Clear for next FFT
+            }
         }
-        all_samples.push_back(tmp_samples_helper);
-        tmp_samples_helper.clear();
     }
-    /*
-    const double  T = 1 / 1260000.0;
-    vector<float> inputs;
-    int counterFM = 0, counterAM = 0;
-    int fcenter = 630000;
-    complexSignal filtered_complex;
-    frequencyMixer(time_samples[0],fcenter,Fs);
-    
-    cout << "fcenter at: " << fcenter << ", filtering above " << fcenter + (BW / 2) << " and below " << fcenter - (BW / 2) << endl;
-    BPF_Filter_real = new Filter(BPF, 40, Fs, fcenter - (BW / 2), fcenter + (BW / 2));
-    BPF_Filter_imag = new Filter(BPF, 40, Fs, fcenter - (BW / 2), fcenter + (BW / 2));
-
-    std::cout << "Error: " << BPF_Filter_real->get_error_flag() << std::endl;
-    std::cout << "Error: " << BPF_Filter_imag->get_error_flag() << std::endl;
-
-    vector<double> real_filtered = doFilter(BPF_Filter_real, time_samples[0], 21000, 1);
-    vector<double> imag_filtered = doFilter(BPF_Filter_imag, time_samples[0], 21000, 0);
-
-    for(int h = 0; h < 21000; h++)
+    int temp2 = Fs;
+    for (int i = 0; i < N; i++)
     {
-        filtered_complex.push_back({ real_filtered[h] , imag_filtered[h]});
+        magnitude.push_back(abs(final_samples[i]));
+        if(magnitude[i] > 12000)
+           ch.push_back(i);
     }
-    
-    frequencyMixer(filtered_complex,-fcenter,Fs);
+    FFT_RESULTS results;
+    results.ch = ch;
+    results.magnitude = magnitude;
 
+    return results;
+}
+pair<int, string> splitAndPredict(complexSignal filtered_complex, NeuralNetwork nn, int channel)
+{
+    int counterFM = 0, counterAM = 0;
+    pair<int, string> result;
+    vector<float> inputs;
     for(int h = 0; h < 80; h++)
     {
         for(int j = h*256; j < (h*256) + 256; j++)
@@ -264,124 +286,129 @@ int main(int argc, char** argv)
         inputs.clear();
     }
     cout << counterFM << " AND " << counterAM << endl;
+    if(counterFM > counterAM)
+        result = pair<int, string>(channel, "FM");
+    else
+        result = pair<int, string>(channel, "AM");
 
-    //FFT
-    fft(after_BPF);
-    for(int j = 0; j < 100; j++)
-    {
-        magnitude.push_back(abs(after_BPF[j]));
-    }
+    counterFM = 0;
+    counterAM = 0;
+    return result;
+}
+int main(int argc, char** argv)
+{
+    QApplication a(argc, argv);
+    NeuralNetwork nn;
+    vector<complexSignal> time_samples_am = read_csv("AM_signal.csv");
+    vector<complexSignal> time_samples_fm = read_csv("FM_signal2.csv");
 
-    /*
-    //generate complex sine wave
-    /*
-    for (int i = 0; i < 1260000; i++)
-    {
-        temp = { (0.7 * cos(2 * M_PI * frequency1 * (i * T))), (0.7 * sin(2 * M_PI * frequency1 * (i * T))) };
-        time_samples[0][i] += temp;
+    vector<complexSignal> all_samples; // this will store both am+fm
+    vector<float> magnitude;
+    complexSignal combined_samples;
+    float Fs = 1260000;
+    int BW = 12600;
+    int spectrogram_rate = 60;
+    complexSignal final_samples(N);
+    int start_point;
 
-        temp = { (0.7 * cos(2 * M_PI * frequency3 * (i * T))), (0.7 * sin(2 * M_PI * frequency3 * (i * T))) };
-        time_samples[0][i] += temp;
-    }
-    */
-    
-    //Split each sample by the spectrogram rate
-    for(int i = 0; i < spectrogram_rate; i++)
+    complexSignal after_BPF;
+
+    complex<float> temp;
+    complex<float> temp3;
+    int frequency1 = 252000;
+
+    vector<float> inputs;
+    const double  T = 1 / Fs;
+
+
+    frequencyMixer(time_samples_fm[0],793800,Fs); // 30
+    frequencyMixer(time_samples_am[0],37800,Fs); // 75
+
+    complexSignal tmp_samples_helper;
+    complex<float> temp_value;
+    for(int i = 0; i < time_samples_am.size(); i++)
     {
-        //Starting from 0, and stepping every 21000 samples
-        start_point = (Fs / spectrogram_rate) * i; 
-        for(int j = start_point; j < start_point + step; j++)
+        for(int j = 0; j < time_samples_am[i].size(); j++)
         {
-            //Compute and sum FFT of 100, 210 times so 21000 samples
-            combined_samples.push_back(all_samples[0][j]);
-            if(combined_samples.size() == N)
-            {
-                //frequencyMixer(combined_samples,630000,Fs);
-                fft(combined_samples);
-                for(int h = 0; h < N; h++)
-                    final_samples[h] += combined_samples[h]; //SUM
-                combined_samples.clear(); //Clear for next FFT
-            }
+            temp = { (0.2 * cos(2 * M_PI * frequency1 * (j * T))), (0.2 * sin(2 * M_PI * frequency1 * (j * T))) }; // Noise
+            temp_value = time_samples_fm[i][j] + time_samples_am[i][j] + temp;
+            tmp_samples_helper.push_back(temp_value);
         }
-    }
-    int temp2 = Fs;
-    for (int i = 0; i < N; i++)
-    {
-        magnitude.push_back(abs(final_samples[i]));
-    }
-    //Threshold checking
-    for (int i = 0; i < N; i++)
-    {
-        if(magnitude[i] > 6000)
-        {
-            ch.push_back(i);
-            cout << "Found Ch: " << i << endl;
-        }
+        all_samples.push_back(tmp_samples_helper);
+        tmp_samples_helper.clear();
     }
     
     map<int, string> nn_results;
-    complexSignal filtered_complex;
-    complexSignal to_fft;
+    FFT_RESULTS results = calculateFFT(spectrogram_rate,Fs,all_samples[0]);
+    vector<int> ch = results.ch;
+    magnitude = results.magnitude;
+    
     //Classification Loop
     float fcenter = 0;
+    complexSignal filtered_complex;
+    int holder;
+
     for(int i = 0; i < ch.size(); i++)
     {
+        //cout << "Working on channel: " << ch[i] << endl;
         fcenter = ch[i] * BW;
-        cout << "fcenter at: " << fcenter << ", filtering above " << fcenter + (BW / 2) << " and below " << fcenter - (BW / 2) << endl;
-        BPF_Filter_real = new Filter(BPF, 40, Fs, fcenter - (BW / 2), fcenter + (BW / 2));
-        BPF_Filter_imag = new Filter(BPF, 40, Fs, fcenter - (BW / 2), fcenter + (BW / 2));
+        frequencyMixer(all_samples[0],-fcenter+504000,Fs); // Moving to 504KHz
+        holder = fcenter-504000;
 
-        vector<double> real_filtered = doFilter(BPF_Filter_real, all_samples[0], 21000, 1);
-        vector<double> imag_filtered = doFilter(BPF_Filter_imag, all_samples[0], 21000, 0);
+        Iir::Butterworth::BandPass<3> f_real;
+        Iir::Butterworth::BandPass<3> f_imag;
+        f_real.setup(1260000, 504000, 12600);
+        f_imag.setup(1260000, 504000, 12600);
 
-        for(int h = 0; h < 21000; h++)
+        //Filtering
+        vector<double> real_filtered = doFilter(f_real, all_samples[0], 1260000, 1);
+        vector<double> imag_filtered = doFilter(f_imag, all_samples[0], 1260000, 0);
+
+        filtered_complex.clear();
+        for(int h = 0; h < 1260000; h++)
         {
             filtered_complex.push_back({ real_filtered[h] , imag_filtered[h]});
         }
-    
+        frequencyMixer(filtered_complex,-504000,Fs); // Moving to 0Hz
+        frequencyMixer(all_samples[0],holder,Fs); // Restoring default freqs
 
-        frequencyMixer(filtered_complex,-fcenter,Fs);
-
-        cout << "Splitting 21,000 samples into chunks of 256 and predicting type of modulation for each chunk" << endl;
-        for(int h = 0; h < 80; h++)
-        {
-            for(int j = h*256; j < (h*256) + 256; j++)
-                inputs.push_back(filtered_complex[j].real());
-
-            for(int j = h*256; j < (h*256) + 256; j++)
-                inputs.push_back(filtered_complex[j].imag());
-
-            string prediction = predict_modulation(nn,inputs);
-            if (prediction == "FM")
-                counterFM++;
-            else
-                counterAM++;
-            inputs.clear();
-        }
-        cout << counterFM << " AND " << counterAM << endl;
-        if(counterFM > counterAM)
-            nn_results.insert(pair<int, string>(ch[i], "FM"));
-        else
-            nn_results.insert(pair<int, string>(ch[i], "AM"));
-
-        counterFM = 0;
-        counterAM = 0;
+        nn_results.insert(splitAndPredict(filtered_complex,nn,ch[i]));
     }
+    //cout << "fcenter at: " << fcenter << " filtering above " << fcenter + (BW / 2) << " and below " << fcenter - (BW / 2) << endl;
+
+    //results = calculateFFT(spectrogram_rate,Fs,filtered_complex);
+    //ch = results.ch;
+    //magnitude = results.magnitude;
+
     std::cout << "Final output: " << std::endl;
     map<int, string>::iterator itr;
     for (itr = nn_results.begin(); itr != nn_results.end(); ++itr) {
         std::cout << itr->first << ':' << itr->second <<  ' ' << std::endl;
     }
     
+    
     float resolution_freq = ((float)Fs / N);
     vector<float> freq_vector = arange(0, Fs, resolution_freq);
 
+    
+    /*
     QChartView *chartView = plot_freq_magnitude_spectrum(freq_vector,magnitude);
 
     QMainWindow window;
     window.setCentralWidget(chartView);
     window.resize(1800, 1000);
     window.show();
+    */
+
+    
+    QImage image = displaySpectrogram(nn_results,magnitude);
+
+    QLabel window;
+    window.setPixmap(QPixmap::fromImage(image));
+    window.setScaledContents( true );
+    window.setSizePolicy( QSizePolicy::Ignored, QSizePolicy::Ignored );
+    window.show();
+    
 
     return a.exec();
 
