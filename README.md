@@ -1,11 +1,3 @@
-
-
-
-
-
-
-
-
 # Neural Network Installation process:
 ## Windows:
 **The guide assumes you're using Visual Studio as an IDE.**
@@ -111,12 +103,13 @@ If you use **Linux**, change **NeuralNetwork.h** second line to include the righ
 To build the project with CMake run the following lines from the NeuralNetwork folder Terminal:
 
     cd build
-    cmake ..
-    cd ..
-    cmake --build build
-After building we can run the program by running:
+    cmake .. && make
 
-    ./build/main 
+If you didn't get any building errors you should be fine running the main file:
+
+    ./main 
+
+This program will create and train a new model with the files we generated earlier, it will save that model in a `Model.txt` file inside the NeuralNetwork folder.
 
 # Spectrogram Installation 
 
