@@ -6,9 +6,14 @@ from scipy.fftpack import fft
 from scipy.signal import butter, lfilter, freqz
 import scipy.signal as sig
 import csv
+import wave, struct, math
 
 def normalizeAudio(data):
     normalized = np.complex128((data / max(data)))
+    return normalized
+
+def normalizeAudio_real(data):
+    normalized = np.float16((data / max(data)))
     return normalized
 
 def chunks(lst, n):
@@ -28,7 +33,7 @@ def compute_hcf(x, y):
     return hcf
 
 def generateSignalFM(slc, time_vec):
-    b = 0
+    b = 0.001
     slc /= (2*np.abs(slc).max())
     N = len(slc)
     fc = 0
@@ -171,16 +176,35 @@ def ComplexToList_nn(type, Fs):
     return lst
 
 
-def butter_lowpass(cutoff, fs, order=5):
-    nyq = fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(order, normal_cutoff, btype='low', analog=False)
-    return b, a
+def fm_generate_rewrite(lst):
+    FM_CARRIER = 0.0
+    MAX_DEVIATION = 1000.0 # Hz
+    filtered_sound = []
+    phase = 0
 
-def butter_lowpass_filter(data, cutoff, fs, order=5):
-    b, a = butter_lowpass(cutoff, fs, order=order)
-    y = lfilter(b, a, data)
-    return y
+    for n in range(0, 44100):
+        # rush or drag phase accordingly to input signal
+        # this is analog to integrating
+        inputsgn = lst[n]
+
+        # translate input into a phase change that changes frequency
+        # up to MAX_DEVIATION Hz 
+        phase += inputsgn * math.pi * MAX_DEVIATION / 44100
+        phase %= 2 * math.pi
+
+        # calculate quadrature I/Q
+        i = math.cos(phase)
+        q = math.sin(phase)
+
+        carrier = 2 * math.pi * FM_CARRIER * (n / 44100.0)
+        output = i * math.cos(carrier) - q * math.sin(carrier)
+
+        filtered_sound.append(output)
+
+    f = sig.resample(filtered_sound, 1260000)
+    f = np.exp(1j * f)
+    return f
+    
 
 def writeCSV(file_name, data,path): 
     len_training = int(len(data) * 0.9)
@@ -207,28 +231,42 @@ def writeCSV(file_name, data,path):
     print("Saved testing file to '" + path + testing_file_name + "'")
     """
 def writeCSV_nn(file_name, data,path): 
-    Fs = 1260000
-    tmp1 = data[0:256]
-    tmp2 = data[Fs:Fs+256]
-    
-    f = open(path + file_name, 'w', newline='')
+    len_training = int(len(data) * 0.9)
+    len_testing = int(len(data) * 0.1)
+
+    training_file_name = 'training' + file_name.upper() + str(len_training) + '.csv'
+    f = open(path + training_file_name, 'w', newline='')
     writer = csv.writer(f)
-    writer.writerows([tmp1 + tmp2])
+    writer.writerows(data[0:len_training])
     f.close()
+
+    testing_file_name = 'testing' + file_name.upper() + str(len_testing) + '.csv'
+    f = open(path + testing_file_name, 'w', newline='')
+    writer = csv.writer(f)
+    writer.writerows(data[len_training:len_training+len_testing])
+    f.close()
+
+    print("Saved training file to '" +  path + training_file_name + "'")
+    print("Saved testing file to '" + path + testing_file_name + "'")
+
 
 def main():
     path = '../NeuralNetwork/TrainingTestingFiles/'
 
     SAMPLE_FOR = 1 # in seconds
-    samplerate, data = scipy.io.wavfile.read(r'Recording.wav')
+    samplerate, data = scipy.io.wavfile.read(r'slave.wav')
     time = np.arange(0,SAMPLE_FOR,1/samplerate) #time vector
+    data_real = normalizeAudio_real(data[0:int(samplerate*SAMPLE_FOR)])
     data = normalizeAudio(data[0:int(samplerate*SAMPLE_FOR)])
 
     time_vec = np.arange(0, 1, 1 / 1260000)
     #Set the Bandwidth to 12.6KHz
     BW = 6300
     w = low_cut_filter(data,samplerate,BW)
-    
+    w_real = low_cut_filter(data_real,samplerate,BW)
+
+    samples_fm = fm_generate_rewrite(w_real)
+
     #Set new Sampeling rate to 1.26MHz
     f = sig.resample(w, 1260000)
     normalized_f = normalizeAudio(f)
@@ -244,15 +282,11 @@ def main():
 
 
     #FM Modulation (Zero-IF)
-    samples_fm = generateSignalFM(normalized_f,time_vec)
+    #samples_fm = fm_generate_rewrite()
+    #samples_fm = generateSignalFM(normalized_f,time_vec)
 
-    #plt.plot(time_old, normalized_f)
-    #plt.plot(time_old, samples_am)
-    #plt.show()
+
     sine = 2 * np.pi * 310000 * time_vec
-
-    fm_filtered = butter_lowpass_filter(samples_fm, BW, 1260000, 6)
-    signal = np.exp(1j* sine) * samples_am
 
     #fft_out = np.fft.fft(fm_filtered[0:100])
     #freq_vector = np.arange(0, 1260000, 1260000 / 100)
@@ -264,7 +298,7 @@ def main():
     #norm_am = normalizeAudio(samples_am)
     #norm_fm = normalizeAudio(fm_filtered)
 
-    #Convert samples to NN list
+    
     am = ComplexToList(samples_am,1260000)
     fm = ComplexToList(samples_fm,1260000)
 
@@ -276,8 +310,8 @@ def main():
     #am = ComplexToList(samples_am,1260000)
     #fm = ComplexToList(samples_fm,1260000)
 
-    #writeCSV_nn('am_signal.csv',am[0],'')
-    #writeCSV_nn('fm_signal.csv',fm[0],'')
+    #writeCSV_nn('am',am,'')
+    #writeCSV_nn('fm',fm,'')
     
     #Save to files
     writeCSV('FM',fm,path)
