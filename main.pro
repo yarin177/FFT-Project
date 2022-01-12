@@ -7,6 +7,6 @@ TARGET = "spectrogram"
 INCLUDEPATH += .
 QT += gui widgets
 
-
+LIBS += -liir
 SOURCES += main.cpp 
 SOURCES += NeuralNetwork/NeuralNetwork.cpp
