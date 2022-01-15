@@ -4,6 +4,7 @@ set(CMAKE_CXX_STANDARD 14)            # Enable c++14 standard
 
 # Add main.cpp file of project root directory as source file
 set(SOURCE_FILES NeuralNetwork.cpp)
+set(EIGEN3_INCLUDE_DIR "/usr/include/eigen3")
 
 # Add executable target with source files listed in SOURCE_FILES variable
 add_executable(main main.cpp ${SOURCE_FILES})
