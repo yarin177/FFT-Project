@@ -7,7 +7,8 @@
 #include <string>
 #include <chrono>
 #include <random>
-#include <corecrt_math_defines.h>
+//Only uncomment on Windows
+//#include <corecrt_math_defines.h>
 #include "Iir.h"
 
 using std::vector;
