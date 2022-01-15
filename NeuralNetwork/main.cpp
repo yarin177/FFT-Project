@@ -14,8 +14,8 @@ int main()
 
 	std::cout << "Reading training files... " << std::endl;
 
-	vector<complexSignal> fm_filtered = readLocalFile("FM_signal.csv");
-	vector<complexSignal> am_filtered = readLocalFile("AM_signal.csv");
+	vector<complexSignal> fm_filtered = readLocalFile("../TrainingTestingFiles/FM_signal.csv");
+	vector<complexSignal> am_filtered = readLocalFile("../TrainingTestingFiles/AM_signal.csv");
 
 	vector<int> possibilities = getPossibilitiesShuffled();
 
