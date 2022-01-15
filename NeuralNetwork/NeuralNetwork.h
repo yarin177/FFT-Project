@@ -62,7 +62,7 @@ public:
 	MatrixXf vectorToMatrix(vector<float> in);
 	vector<float> matrixToVector(MatrixXf in);
 	vector<float> predict(vector<float> inputs_vector);
-	void saveModel();
+	void saveModel(string file_name);
 	vector<MatrixXf> loadModel();
 	void train(vector<float> inputs_vector, vector<float> answers);
 };
