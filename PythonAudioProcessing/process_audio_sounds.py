@@ -1,6 +1,6 @@
 import scipy
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import scipy.io.wavfile
 from scipy.fftpack import fft
 from scipy.signal import butter, lfilter, freqz
@@ -209,7 +209,7 @@ def fm_generate_rewrite(lst):
 def writeCSV(file_name, data,path): 
     len_training = int(len(data) * 0.9)
     len_testing = int(len(data) * 0.1)
-    f = open(file_name + '_signal.csv', 'w', newline='')
+    f = open(path + file_name + '_signal.csv', 'w', newline='')
     writer = csv.writer(f)
     writer.writerows([data[0]])
     f.close()
@@ -317,7 +317,7 @@ def main():
     writeCSV('FM',fm,path)
     writeCSV('AM',am,path)
     #Save to files
-
+    print("Wrote files!")
     #writeCSV('FM',fm,path)
     #writeCSV('AM',am,path
     
