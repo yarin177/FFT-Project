@@ -177,10 +177,10 @@ vector<string> matrixToTxt(MatrixXf in)
 	data.push_back("}");
 	return data;
 }
-void NeuralNetwork::saveModel() 
+void NeuralNetwork::saveModel(string file_name) 
 {
 	std::ofstream myfile;
-	myfile.open("Model.txt");
+	myfile.open(file_name);
 	vector<vector<string>> txtData;
 	vector<string> weights_ih = matrixToTxt(this->weights_ih);
 	vector<string> weights_ho = matrixToTxt(this->weights_ho);
@@ -249,7 +249,7 @@ bool contains(const string& s, const char letter) {
 }
 vector<MatrixXf> NeuralNetwork::loadModel()
 {
-	std::ifstream file("NeuralNetwork/Model.txt");
+	std::ifstream file("Model.txt");
 	string str;
 	vector<string> data;
 	vector<MatrixXf> matrixs;
