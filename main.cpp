@@ -27,39 +27,7 @@ const int N = 100; // Samples
 const int TIME_RESOLUTION = 100;
 const int FREQUENCY_RESOLUTION = 100;
 
-typedef vector<complex<float>> complexSignal;
-vector<complexSignal> read_csv(std::string filename) {
-    vector<float> data;
-    vector<complexSignal> comp;
-    // Create an input filestream
-    std::ifstream myFile(filename);
-    std::string line;
-    int counter = 0; // used to keep track of real & imag parts
-    int split_size = 1260000; // 1,260,000 is 1 seconds of sample data
-    while (std::getline(myFile, line))
-    {
-        std::istringstream s(line);
-        std::string field;
-        vector<float> lineData;
-        complexSignal temp;
-
-        while (std::getline(s, field, ',')) {
-            //data.push_back(std::stof(field));
-            float value = std::stof(field);
-            if (counter < split_size)
-                temp.push_back({ value , 0 });
-            else
-                temp[counter - split_size].imag(value);
-            counter++;
-        }
-        comp.push_back(temp);
-        counter = 0;
-        temp.clear();
-    }
-    return comp;
-}
-
-void frequencyMixer(complexSignal& data, const int frequency, const float Fs)
+void frequencyMixerOriginal(complexSignal& data, const int frequency, const float Fs)
 {
     complexSignal chunk(data.size());
     const double  T = 1 / Fs; // At what intervals time points are sampled
@@ -68,8 +36,9 @@ void frequencyMixer(complexSignal& data, const int frequency, const float Fs)
         chunk[i] = {(float)(1 * cos(2 * M_PI * frequency * (i * T))),(float)(1 * sin(2 * M_PI * frequency * (i * T)))};
         data[i] = data[i] * chunk[i];
     }
-} 
-complexSignal frequencyMixerCopy(complexSignal data, const int frequency, const float Fs)
+}
+
+complexSignal frequencyMixerOriginalCopy(complexSignal data, const int frequency, const float Fs)
 {
     complexSignal chunk(data.size());
     const double  T = 1 / Fs; // At what intervals time points are sampled
@@ -189,21 +158,7 @@ complexSignal decimated_array(int M,complexSignal arr)
     }
     return decimated;
 }
-vector<double> doFilter(Iir::Butterworth::BandPass<3> f, const complexSignal& samples, int N, bool real_part)
-{
-    vector<double> to_return;
-    float part;
-    for (int i = 0; i < N; i++)
-    {
-        if (real_part)
-            part = f.filter(samples[i].real());
-        else
-            part = f.filter(samples[i].imag());
-        to_return.push_back(part);
-    }
-    return to_return;
 
-}
 string predict_modulation(NeuralNetwork nn, vector<float> inputs)
 {
     //This function takes a Neural Network object and vector of inputs
@@ -215,6 +170,7 @@ string predict_modulation(NeuralNetwork nn, vector<float> inputs)
     else
         return "AM";
 }
+
 struct FFT_RESULTS {
   vector<int> ch; //channels
   vector<float> magnitude;
@@ -239,7 +195,7 @@ FFT_RESULTS calculateFFT(int spectrogram_rate, int Fs, complexSignal to_test)
             combined_samples.push_back(to_test[j]);
             if(combined_samples.size() == N)
             {
-                //frequencyMixer(combined_samples,630000,Fs);
+                //frequencyMixerOriginal(combined_samples,630000,Fs);
                 fft(combined_samples);
                 for(int h = 0; h < N; h++)
                 {
@@ -264,6 +220,7 @@ FFT_RESULTS calculateFFT(int spectrogram_rate, int Fs, complexSignal to_test)
 
     return results;
 }
+
 pair<int, string> splitAndPredict(complexSignal filtered_complex, NeuralNetwork nn, int channel)
 {
     int counterFM = 0, counterAM = 0;
@@ -294,13 +251,13 @@ pair<int, string> splitAndPredict(complexSignal filtered_complex, NeuralNetwork 
     counterAM = 0;
     return result;
 }
+
 int main(int argc, char** argv)
 {
     QApplication a(argc, argv);
     NeuralNetwork nn;
-    vector<complexSignal> time_samples_am = read_csv("AM_signal.csv");
-    vector<complexSignal> time_samples_fm = read_csv("FM_signal2.csv");
-
+    vector<complexSignal> time_samples_am = readLocalFile("NeuralNetwork/TrainingTestingFiles/AM_signal.csv");
+    vector<complexSignal> time_samples_fm = readLocalFile("NeuralNetwork/TrainingTestingFiles/FM_signal.csv");
     vector<complexSignal> all_samples; // this will store both am+fm
     vector<float> magnitude;
     complexSignal combined_samples;
@@ -317,11 +274,12 @@ int main(int argc, char** argv)
     int frequency1 = 252000;
 
     vector<float> inputs;
+    
     const double  T = 1 / Fs;
 
 
-    frequencyMixer(time_samples_fm[0],793800,Fs); // 30
-    frequencyMixer(time_samples_am[0],37800,Fs); // 75
+    frequencyMixerOriginal(time_samples_fm[0],80 * 12600,Fs); // 30
+    frequencyMixerOriginal(time_samples_am[0],90 * 12600,Fs); // 75
 
     complexSignal tmp_samples_helper;
     complex<float> temp_value;
@@ -330,7 +288,7 @@ int main(int argc, char** argv)
         for(int j = 0; j < time_samples_am[i].size(); j++)
         {
             temp = { (0.2 * cos(2 * M_PI * frequency1 * (j * T))), (0.2 * sin(2 * M_PI * frequency1 * (j * T))) }; // Noise
-            temp_value = time_samples_fm[i][j] + time_samples_am[i][j] + temp;
+            temp_value = time_samples_am[i][j] + time_samples_fm[i][j] + temp;
             tmp_samples_helper.push_back(temp_value);
         }
         all_samples.push_back(tmp_samples_helper);
@@ -341,17 +299,17 @@ int main(int argc, char** argv)
     FFT_RESULTS results = calculateFFT(spectrogram_rate,Fs,all_samples[0]);
     vector<int> ch = results.ch;
     magnitude = results.magnitude;
-    
+
     //Classification Loop
     float fcenter = 0;
     complexSignal filtered_complex;
     int holder;
-
+    
     for(int i = 0; i < ch.size(); i++)
     {
         //cout << "Working on channel: " << ch[i] << endl;
         fcenter = ch[i] * BW;
-        frequencyMixer(all_samples[0],-fcenter+504000,Fs); // Moving to 504KHz
+        frequencyMixerOriginal(all_samples[0],-fcenter+504000,Fs); // Moving to 504KHz
         holder = fcenter-504000;
 
         Iir::Butterworth::BandPass<3> f_real;
@@ -368,8 +326,8 @@ int main(int argc, char** argv)
         {
             filtered_complex.push_back({ real_filtered[h] , imag_filtered[h]});
         }
-        frequencyMixer(filtered_complex,-504000,Fs); // Moving to 0Hz
-        frequencyMixer(all_samples[0],holder,Fs); // Restoring default freqs
+        frequencyMixerOriginal(filtered_complex,-504000,Fs); // Moving to 0Hz
+        frequencyMixerOriginal(all_samples[0],holder,Fs); // Restoring default freqs
 
         nn_results.insert(splitAndPredict(filtered_complex,nn,ch[i]));
     }
