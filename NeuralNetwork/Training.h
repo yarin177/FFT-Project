@@ -92,6 +92,11 @@ vector<complexSignal> readLocalFile(string file_path) {
 		counter = 0;
 		temp.clear();
 	}
+	if(comp.size() == 0)
+	{
+		std::cout << "Error reading file: " << file_path << std::endl;
+		std::exit(0);
+	}
 	return comp;
 }
 vector<int> getPossibilitiesShuffled()
