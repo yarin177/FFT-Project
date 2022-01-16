@@ -27,6 +27,11 @@ const int N = 100; // Samples
 const int TIME_RESOLUTION = 100;
 const int FREQUENCY_RESOLUTION = 100;
 
+struct Color{
+    int R;
+    int G;
+    int B;
+};
 void frequencyMixerOriginal(complexSignal& data, const int frequency, const float Fs)
 {
     complexSignal chunk(data.size());
@@ -38,18 +43,6 @@ void frequencyMixerOriginal(complexSignal& data, const int frequency, const floa
     }
 }
 
-complexSignal frequencyMixerOriginalCopy(complexSignal data, const int frequency, const float Fs)
-{
-    complexSignal chunk(data.size());
-    const double  T = 1 / Fs; // At what intervals time points are sampled
-    for(int i = 0; i < chunk.size(); i++)
-    {
-        chunk[i] = {(float)(1 * cos(2 * M_PI * frequency * (i * T))),(float)(1 * sin(2 * M_PI * frequency * (i * T)))};
-        data[i] = data[i] * chunk[i];
-    }
-    return data;
-} 
-
 vector<float> arange(float start, float stop, float step) {
     vector<float> values;
     for (float value = start; value < stop; value += step)
@@ -57,22 +50,6 @@ vector<float> arange(float start, float stop, float step) {
     return values;
 }
  
-struct Color { // Represents a pixel color
-    float R;
-    float G;
-    float B;
-};
- 
-Color GetColorEntry(float x) { // Converts dBm entry to RGB color entry
-    x = max(0.0f, 3 * x);
-    Color pixel;
-    x = 3 * x;
-    float R = min(x, 1.0f) * 255;
-    float G = min(1.0f, max(x - 1, 0.0f)) * 255;
-    float B = min(1.0f, max(x - 2, 0.0f)) * 255;
-    pixel = { R,G,B };
-    return pixel;
-}
 bool mapContainsKey(std::map<int, string>& map, int key)
 {
   if (map.find(key) == map.end()) return false;
@@ -102,9 +79,9 @@ QImage displaySpectrogram(map<int, string> nn_results, vector<float> magnitude)
             {
                 Color color;
                 if(nn_results.find(j)->second == "AM")
-                    color = {normilized_magnitude[j],0,0};
+                    color = {(int)normilized_magnitude[j],0,0};
                 else
-                    color = {0,normilized_magnitude[j],0};
+                    color = {0,(int)normilized_magnitude[j],0};
                 value = qRgb(color.R, color.G, color.B);
                 image.setPixel(j, i, value);
             }
@@ -118,19 +95,6 @@ QImage displaySpectrogram(map<int, string> nn_results, vector<float> magnitude)
     }
     QImage img2 = image.scaled(1000, 1000, Qt::KeepAspectRatio);
     return img2;
-}
-vector<vector<float>> NormalizedBm(float max_dBm, vector<float> magnitude, vector<vector<float>> dBm)
-{
-    int counter = 0;
-    for (int i = 0; i < TIME_RESOLUTION; i++)
-    {
-        for (int j = 0; j < FREQUENCY_RESOLUTION; j++)
-        {
-            dBm[i][j] = (30 + (20 * log10(magnitude[counter]))) / max_dBm; // Normalize output
-            counter++;
-        }
-    }
-    return dBm;
 }
 QChartView* plot_freq_magnitude_spectrum(vector<float> freq_vector, vector<float> mag_vector)
 {
@@ -150,15 +114,6 @@ QChartView* plot_freq_magnitude_spectrum(vector<float> freq_vector, vector<float
     chartView->setRenderHint(QPainter::Antialiasing);
     return chartView;
 }
-complexSignal decimated_array(int M,complexSignal arr)
-{
-    complexSignal decimated;
-    for (size_t i = 0; i < arr.size(); i = i + M) {
-        decimated.push_back(arr[i]);
-    }
-    return decimated;
-}
-
 string predict_modulation(NeuralNetwork nn, vector<float> inputs)
 {
     //This function takes a Neural Network object and vector of inputs
@@ -207,7 +162,6 @@ FFT_RESULTS calculateFFT(int spectrogram_rate, int Fs, complexSignal to_test)
             }
         }
     }
-    int temp2 = Fs;
     for (int i = 0; i < N; i++)
     {
         magnitude.push_back(abs(final_samples[i]));
@@ -265,7 +219,6 @@ int main(int argc, char** argv)
     int BW = 12600;
     int spectrogram_rate = 60;
     complexSignal final_samples(N);
-    int start_point;
 
     complexSignal after_BPF;
 
@@ -287,7 +240,7 @@ int main(int argc, char** argv)
     {
         for(int j = 0; j < time_samples_am[i].size(); j++)
         {
-            temp = { (0.2 * cos(2 * M_PI * frequency1 * (j * T))), (0.2 * sin(2 * M_PI * frequency1 * (j * T))) }; // Noise
+            temp = {(float)(0.2 * cos(2 * M_PI * frequency1 * (j * T))),(float)(0.2 * sin(2 * M_PI * frequency1 * (j * T))) }; // Noise
             temp_value = time_samples_am[i][j] + time_samples_fm[i][j] + temp;
             tmp_samples_helper.push_back(temp_value);
         }
@@ -324,18 +277,13 @@ int main(int argc, char** argv)
         filtered_complex.clear();
         for(int h = 0; h < 1260000; h++)
         {
-            filtered_complex.push_back({ real_filtered[h] , imag_filtered[h]});
+            filtered_complex.push_back({ (float)real_filtered[h] , (float)imag_filtered[h]});
         }
         frequencyMixerOriginal(filtered_complex,-504000,Fs); // Moving to 0Hz
         frequencyMixerOriginal(all_samples[0],holder,Fs); // Restoring default freqs
 
         nn_results.insert(splitAndPredict(filtered_complex,nn,ch[i]));
     }
-    //cout << "fcenter at: " << fcenter << " filtering above " << fcenter + (BW / 2) << " and below " << fcenter - (BW / 2) << endl;
-
-    //results = calculateFFT(spectrogram_rate,Fs,filtered_complex);
-    //ch = results.ch;
-    //magnitude = results.magnitude;
 
     std::cout << "Final output: " << std::endl;
     map<int, string>::iterator itr;
