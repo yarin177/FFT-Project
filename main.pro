@@ -6,7 +6,8 @@ TEMPLATE = app
 TARGET = "spectrogram"
 INCLUDEPATH += .
 QT += gui widgets
+QT += charts
 
 LIBS += -liir
-SOURCES += main.cpp 
+SOURCES += main.cpp
 SOURCES += NeuralNetwork/NeuralNetwork.cpp
