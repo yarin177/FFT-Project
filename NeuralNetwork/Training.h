@@ -242,7 +242,7 @@ void Test(vector<TrainingHandler> testing_data, NeuralNetwork& nn)
 {
 	int correct = 0;
 	int average = 0;
-	int perccent, sure = 0;
+	float perccent, sure = 0;
 	std::cout << "Testing NeuralNetwork with " << testing_data.size() << " chunks" << std::endl;
 
 	for (int j = 0; j < testing_data.size(); j++)
