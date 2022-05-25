@@ -332,13 +332,13 @@ void displaySpectrogram()
     */
     //return img2;
 }
-/*
-QChartView* plot_freq_magnitude_spectrum(vector<float> freq_vector)
+
+QChartView* plot_freq_magnitude_spectrum(vector<float> freq_vector, vector<float> magn_vector)
 {
     QLineSeries *series = new QLineSeries();
     for(int i = 0; i < N; i++)
     {
-        series->append(freq_vector[i], mag_vector[i]);
+        series->append(freq_vector[i], magn_vector[i]);
     }
     QChart *chart = new QChart();
     chart->legend()->hide();
@@ -351,7 +351,7 @@ QChartView* plot_freq_magnitude_spectrum(vector<float> freq_vector)
     chartView->setRenderHint(QPainter::Antialiasing);
     return chartView;
 }
-*/
+
 string predict_modulation(NeuralNetwork nn, vector<float> inputs)
 {
     //This function takes a Neural Network object and vector of inputs
@@ -441,6 +441,7 @@ pair<int, string> splitAndPredict(complexSignal filtered_complex, NeuralNetwork 
     else
         result = pair<int, string>(channel, "AM");
 
+    //std::cout << counterFM << " " << counterAM << std::endl;
     counterFM = 0;
     counterAM = 0;
     return result;
@@ -450,7 +451,7 @@ complexSignal get_random_signals(complexSignal fm, complexSignal am, float Fs)
 {
     vector<int> possb;
     vector<int> options;
-    for(int i = 5; i < 10; i++)
+    for(int i = 1; i < 6; i++)
     {
         options.push_back(i);
     }
@@ -472,9 +473,11 @@ complexSignal get_random_signals(complexSignal fm, complexSignal am, float Fs)
     const double  T = 1 / Fs;
     complex<float> temp_value;
     all_samples = frequencyMixerCopy(fm,possb[0],Fs);
+    std::cout << "sent FM: " << possb[0] / 12600 << std::endl;
     for(int i = 1; i < fm_count; i++)
     {
         complexSignal temp_hold = frequencyMixerCopy(fm,possb[i],Fs);
+        std::cout << "sent FM: " << possb[i] / 12600 << std::endl;
         for(int j = 0; j < 1260000; j++)
         {
             all_samples[j] += temp_hold[j];
@@ -484,6 +487,7 @@ complexSignal get_random_signals(complexSignal fm, complexSignal am, float Fs)
     for(int i = fm_count; i < fm_count+am_count; i++)
     {
         complexSignal temp_hold = frequencyMixerCopy(am,possb[i],Fs);
+        std::cout << "sent AM: " << possb[i] / 12600 << std::endl;
         for(int j = 0; j < 1260000; j++)
         {
             all_samples[j] += temp_hold[j];
@@ -492,13 +496,14 @@ complexSignal get_random_signals(complexSignal fm, complexSignal am, float Fs)
 
     for(int i = fm_count + am_count; i < noise_count + fm_count + am_count; i++)
     {
+        std::cout << "sent NOISE: " << possb[i] / 12600 << std::endl;
         for(int j = 0; j < 1260000; j++)
         {
             temp = {(float)(0.2 * cos(2 * M_PI * possb[i] * (j * T))),(float)(0.2 * sin(2 * M_PI * possb[i] * (j * T))) }; // Noise
             all_samples[j] += temp;
         }
     }
-    
+    std::cout << std::endl;
     return all_samples;
 
 }
@@ -573,7 +578,7 @@ void realTimeAudio(vector<complexSignal> time_samples_fm,vector<complexSignal> t
         vector<int> ch = results.ch;
 
         map<int, string> nn_results = filterChannels(ch,all_samples,BW,Fs,nn);
-        std::cout << "Final output: " << std::endl;
+        std::cout << "NN Results: " << std::endl;
         map<int, string>::iterator itr;
         for (itr = nn_results.begin(); itr != nn_results.end(); ++itr) {
             std::cout << itr->first << ':' << itr->second <<  ' ' << std::endl;
@@ -588,12 +593,30 @@ void realTimeAudio(vector<complexSignal> time_samples_fm,vector<complexSignal> t
     //std::this_thread::sleep_for(5000ms);
 
 }
+
+vector<double> doFilterX(Iir::Butterworth::BandPass<3> f, const complexSignal samples, int N, bool real_part)
+{
+	//Applies a Bandpass filter to a 1d array with the size of N
+	vector<double> to_return;
+	float part;
+	for (int i = 0; i < N; i++)
+	{
+		if (real_part)
+			part = f.filter(samples[i].real());
+		else
+			part = f.filter(samples[i].imag());
+		to_return.push_back(part);
+	}
+	return to_return;
+
+}
+
 int main(int argc, char** argv)
 {
     QApplication a(argc, argv);
     NeuralNetwork nn;
-    vector<complexSignal> time_samples_am = readLocalFile("NeuralNetwork/TrainingTestingFiles/AM_signal.csv");
-    vector<complexSignal> time_samples_fm = readLocalFile("NeuralNetwork/TrainingTestingFiles/FM_signal.csv");
+    vector<complexSignal> time_samples_am = readLocalFile("NeuralNetwork/TrainingTestingFiles/AM_signal.csv",1260000);
+    vector<complexSignal> time_samples_fm = readLocalFile("NeuralNetwork/TrainingTestingFiles/FM_signal.csv",1260000);
     vector<float> magnitude;
     complexSignal combined_samples;
     float Fs = 1260000;
