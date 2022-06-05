@@ -9,5 +9,8 @@ QT += gui widgets
 QT += charts
 
 LIBS += -liir
+
 SOURCES += main.cpp
+SOURCES += Helpful_functions.cpp
+SOURCES += server.cpp
 SOURCES += NeuralNetwork/NeuralNetwork.cpp
